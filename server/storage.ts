@@ -1,4 +1,6 @@
 import { rooms, participants, type Room, type Participant, type InsertRoom, type InsertParticipant } from "@shared/schema";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // Room operations
@@ -117,4 +119,90 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database implementation
+export class DatabaseStorage implements IStorage {
+  async getRoom(id: string): Promise<Room | undefined> {
+    const [room] = await db.select().from(rooms).where(eq(rooms.id, id));
+    return room || undefined;
+  }
+
+  async createRoom(room: InsertRoom): Promise<Room> {
+    const [newRoom] = await db
+      .insert(rooms)
+      .values({
+        ...room,
+        hostId: room.hostId || null,
+        isActive: room.isActive ?? true,
+        maxParticipants: room.maxParticipants ?? 10,
+        settings: room.settings || null,
+      })
+      .returning();
+    return newRoom;
+  }
+
+  async updateRoom(id: string, updates: Partial<Room>): Promise<Room | undefined> {
+    const [updatedRoom] = await db
+      .update(rooms)
+      .set(updates)
+      .where(eq(rooms.id, id))
+      .returning();
+    return updatedRoom || undefined;
+  }
+
+  async deleteRoom(id: string): Promise<boolean> {
+    // Delete participants first (foreign key constraint)
+    await db.delete(participants).where(eq(participants.roomId, id));
+    
+    const result = await db.delete(rooms).where(eq(rooms.id, id));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async getParticipants(roomId: string): Promise<Participant[]> {
+    return await db.select().from(participants).where(eq(participants.roomId, roomId));
+  }
+
+  async getParticipant(roomId: string, participantId: string): Promise<Participant | undefined> {
+    const [participant] = await db
+      .select()
+      .from(participants)
+      .where(and(eq(participants.roomId, roomId), eq(participants.connectionId, participantId)));
+    return participant || undefined;
+  }
+
+  async addParticipant(participant: InsertParticipant): Promise<Participant> {
+    // Check if this is the first participant (should be host)
+    const existingParticipants = await this.getParticipants(participant.roomId);
+    const isHost = existingParticipants.length === 0;
+
+    const [newParticipant] = await db
+      .insert(participants)
+      .values({
+        ...participant,
+        userId: participant.userId || null,
+        isHost: isHost,
+        isMuted: participant.isMuted ?? false,
+        isVideoEnabled: participant.isVideoEnabled ?? false,
+        connectionId: participant.connectionId || null,
+      })
+      .returning();
+    return newParticipant;
+  }
+
+  async updateParticipant(roomId: string, participantId: string, updates: Partial<Participant>): Promise<Participant | undefined> {
+    const [updatedParticipant] = await db
+      .update(participants)
+      .set(updates)
+      .where(and(eq(participants.roomId, roomId), eq(participants.connectionId, participantId)))
+      .returning();
+    return updatedParticipant || undefined;
+  }
+
+  async removeParticipant(roomId: string, participantId: string): Promise<boolean> {
+    const result = await db
+      .delete(participants)
+      .where(and(eq(participants.roomId, roomId), eq(participants.connectionId, participantId)));
+    return result.rowCount ? result.rowCount > 0 : false;
+  }
+}
+
+export const storage = new DatabaseStorage();

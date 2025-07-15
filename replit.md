@@ -38,7 +38,7 @@ Preferred communication style: Simple, everyday language.
 - **Participants**: Real-time participant tracking within rooms
 
 ### Core Services
-- **Storage Service**: Abstracted data layer with in-memory implementation for development
+- **Storage Service**: Abstracted data layer with PostgreSQL database implementation
 - **WebRTC Manager**: Handles peer connections and media streams
 - **Signaling Service**: Manages WebSocket communication for call coordination
 
@@ -78,7 +78,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Development Environment
 - **Server**: Single process running Express.js with Vite middleware
-- **Database**: Neon PostgreSQL serverless instance
+- **Database**: PostgreSQL with Drizzle ORM and Neon serverless driver
 - **Hot Reload**: Vite HMR for frontend, TSX for backend development
 
 ### Production Build
@@ -93,3 +93,12 @@ Preferred communication style: Simple, everyday language.
 - **Monitoring**: Structured for Prometheus metrics collection
 
 The application follows a clean separation of concerns with shared TypeScript schemas between frontend and backend, ensuring type safety across the full stack. The modular architecture allows for easy extension of features like recording, chat, and advanced room management.
+
+## Recent Changes
+
+### Database Integration (January 15, 2025)
+- Added PostgreSQL database support with Neon serverless driver
+- Implemented DatabaseStorage class replacing in-memory storage
+- Created database schema with rooms and participants tables
+- All room and participant data now persists in the database
+- WebRTC signaling and real-time features remain fully functional
