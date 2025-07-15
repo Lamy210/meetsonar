@@ -37,9 +37,14 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
       videoRef.current.srcObject = stream;
       
       // Ensure video plays
-      videoRef.current.play().catch(error => {
-        console.error(`Failed to play video for ${name}:`, error);
-      });
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log(`Video playing successfully for ${name}`);
+        }).catch(error => {
+          console.error(`Failed to play video for ${name}:`, error);
+        });
+      }
     } else if (videoRef.current && !stream) {
       console.log(`No stream available for ${name}`);
       videoRef.current.srcObject = null;
@@ -55,7 +60,17 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
             autoPlay
             playsInline
             muted={isLocal}
-            className="w-full h-full object-cover"
+            controls={false}
+            className="w-full h-full object-cover bg-gray-900"
+            onLoadedMetadata={() => {
+              console.log(`Video metadata loaded for ${name}`);
+            }}
+            onPlay={() => {
+              console.log(`Video started playing for ${name}`);
+            }}
+            onError={(e) => {
+              console.error(`Video error for ${name}:`, e);
+            }}
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
