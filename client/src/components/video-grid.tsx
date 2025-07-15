@@ -26,9 +26,25 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
 
   useEffect(() => {
     if (videoRef.current && stream) {
+      console.log(`Setting video source for ${name}:`, {
+        streamId: stream.id,
+        trackCount: stream.getTracks().length,
+        audioTracks: stream.getAudioTracks().length,
+        videoTracks: stream.getVideoTracks().length,
+        isLocal: isLocal
+      });
+      
       videoRef.current.srcObject = stream;
+      
+      // Ensure video plays
+      videoRef.current.play().catch(error => {
+        console.error(`Failed to play video for ${name}:`, error);
+      });
+    } else if (videoRef.current && !stream) {
+      console.log(`No stream available for ${name}`);
+      videoRef.current.srcObject = null;
     }
-  }, [stream]);
+  }, [stream, name]);
 
   return (
     <div className={`relative group ${isMainSpeaker ? "md:col-span-2 lg:col-span-2" : ""} ${isLocal ? "border-2 border-primary" : ""}`}>
@@ -96,6 +112,15 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
 }
 
 export default function VideoGrid({ localStream, remoteStreams, participants, isVideoEnabled, displayName }: VideoGridProps) {
+  // Debug logging
+  console.log("VideoGrid render:", {
+    localStreamTracks: localStream?.getTracks().length || 0,
+    remoteStreamsCount: remoteStreams.size,
+    remoteStreamKeys: Array.from(remoteStreams.keys()),
+    participantsCount: participants.length,
+    participantIds: participants.map(p => p.connectionId)
+  });
+  
   // Find the main speaker (first participant who is not muted and has video)
   const mainSpeaker = participants.find(p => !p.isMuted && p.isVideoEnabled) || participants[0];
   const otherParticipants = participants.filter(p => p.connectionId !== mainSpeaker?.connectionId);
@@ -115,7 +140,7 @@ export default function VideoGrid({ localStream, remoteStreams, participants, is
       {/* Other participant videos */}
       {otherParticipants.map((participant) => (
         <VideoStream
-          key={participant.connectionId}
+          key={`participant-${participant.connectionId}-${participant.id}`}
           stream={remoteStreams.get(participant.connectionId || "")}
           participant={participant}
           displayName={displayName}

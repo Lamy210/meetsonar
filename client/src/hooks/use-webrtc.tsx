@@ -108,7 +108,16 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     
     switch (message.type) {
       case "participant-joined":
-        setParticipants(prev => [...prev, message.payload]);
+        setParticipants(prev => {
+          // Avoid duplicate participants
+          const exists = prev.some(p => p.connectionId === message.payload.connectionId);
+          if (exists) {
+            console.warn("Participant already exists:", message.payload.connectionId);
+            return prev;
+          }
+          console.log("Adding new participant:", message.payload.connectionId);
+          return [...prev, message.payload];
+        });
         // Create peer connection for the new participant
         await createPeerConnection(message.payload.connectionId);
         break;
@@ -119,10 +128,12 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         break;
       
       case "participants-list":
+        console.log("Received participants list:", message.payload.length, "participants");
         setParticipants(message.payload);
         // Create peer connections for existing participants
         for (const participant of message.payload) {
           if (participant.connectionId !== displayName) {
+            console.log("Creating peer connection for existing participant:", participant.connectionId);
             await createPeerConnection(participant.connectionId);
           }
         }
@@ -217,13 +228,19 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
     // Create and send offer
     try {
+      // Wait for local stream to be ready
+      if (!localStreamRef.current) {
+        console.warn("Local stream not ready when creating offer for:", participantId);
+        return;
+      }
+
       const offer = await peerConnection.createOffer({
         offerToReceiveAudio: true,
         offerToReceiveVideo: true
       });
       await peerConnection.setLocalDescription(offer);
       
-      console.log("Sending offer to:", participantId);
+      console.log("Sending offer to:", participantId, "SDP length:", offer.sdp?.length);
       if (socketRef.current) {
         socketRef.current.send(JSON.stringify({
           type: "offer",
@@ -305,12 +322,18 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
       // Add local stream tracks after setting remote description
       if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => {
-          console.log("Adding track to peer connection:", track.kind, "enabled:", track.enabled);
-          peerConnection!.addTrack(track, localStreamRef.current!);
+        const tracks = localStreamRef.current.getTracks();
+        console.log("Available tracks for offer handling:", tracks.length);
+        tracks.forEach(track => {
+          console.log("Adding track to peer connection:", track.kind, "enabled:", track.enabled, "readyState:", track.readyState);
+          try {
+            peerConnection!.addTrack(track, localStreamRef.current!);
+          } catch (err) {
+            console.error("Failed to add track:", err);
+          }
         });
       } else {
-        console.warn("No local stream available when handling offer");
+        console.warn("No local stream available when handling offer from:", participantId);
       }
 
       const answer = await peerConnection.createAnswer();
