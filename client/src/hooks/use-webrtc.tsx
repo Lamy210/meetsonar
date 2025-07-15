@@ -178,6 +178,27 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     const existingPc = peerConnections.current.get(participantId);
     if (existingPc && existingPc.connectionState !== 'closed' && existingPc.connectionState !== 'failed') {
       console.log("Reusing existing peer connection for:", participantId, "state:", existingPc.connectionState);
+      
+      // Make sure local tracks are properly added to existing connection
+      if (localStreamRef.current) {
+        const senders = existingPc.getSenders();
+        const localTracks = localStreamRef.current.getTracks();
+        
+        console.log("Checking existing senders:", senders.map(s => s.track?.kind || 'null'));
+        
+        // Replace tracks if they're missing or different
+        for (const track of localTracks) {
+          const existingSender = senders.find(s => s.track?.kind === track.kind);
+          if (!existingSender || !existingSender.track) {
+            console.log("Adding missing track to existing connection:", track.kind);
+            existingPc.addTrack(track, localStreamRef.current);
+          } else if (existingSender.track !== track) {
+            console.log("Replacing track in existing connection:", track.kind);
+            existingSender.replaceTrack(track);
+          }
+        }
+      }
+      
       return; // Connection already exists and is usable
     }
 
@@ -213,7 +234,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         });
         
         const sender = peerConnection.addTrack(track, localStreamRef.current!);
-        console.log("Track added successfully, sender:", !!sender);
+        console.log("Track added successfully, sender track:", sender.track?.kind, "enabled:", sender.track?.enabled);
       });
     } else {
       console.warn("No local stream available when creating peer connection for:", participantId);
@@ -265,7 +286,13 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         console.log(`Successfully connected to ${participantId}`);
         // Debug track senders
         const senders = peerConnection.getSenders();
-        console.log(`Senders for ${participantId}:`, senders.length, senders.map(s => s.track?.kind));
+        console.log(`Senders for ${participantId}:`, senders.length, senders.map(s => s.track?.kind || 'null'));
+        
+        // Verify all senders have tracks
+        const missingSenders = senders.filter(s => !s.track);
+        if (missingSenders.length > 0) {
+          console.warn(`Found ${missingSenders.length} senders without tracks`);
+        }
       } else if (peerConnection.connectionState === 'failed') {
         console.error(`Connection failed for ${participantId}`);
       }
@@ -281,9 +308,28 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       }
     };
 
-    // Debug negotiation state
-    peerConnection.onnegotiationneeded = () => {
-      console.log(`Negotiation needed for ${participantId}`);
+    // Handle negotiation needed (important for track changes)
+    peerConnection.onnegotiationneeded = async () => {
+      console.log(`Negotiation needed for ${participantId}, creating new offer...`);
+      
+      if (peerConnection.signalingState === 'stable') {
+        try {
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+          
+          if (socketRef.current) {
+            socketRef.current.send(JSON.stringify({
+              type: "offer",
+              roomId,
+              participantId: displayName,
+              targetParticipant: participantId,
+              payload: offer
+            }));
+          }
+        } catch (error) {
+          console.error("Failed to handle negotiation:", error);
+        }
+      }
     };
 
     // Debug signaling state changes
