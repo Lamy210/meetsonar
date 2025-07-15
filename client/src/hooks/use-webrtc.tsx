@@ -70,8 +70,16 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     const initializeLocalStream = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: true // Start with both audio and video
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: "user"
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
         });
         
         localStreamRef.current = stream;
@@ -80,14 +88,18 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         // Set initial states
         stream.getAudioTracks().forEach(track => {
           track.enabled = isAudioEnabled;
+          console.log("Audio track initialized:", track.label, track.enabled);
         });
         stream.getVideoTracks().forEach(track => {
           track.enabled = isVideoEnabled;
+          console.log("Video track initialized:", track.label, track.enabled);
         });
         
         console.log("Local stream initialized:", {
+          streamId: stream.id,
           audioTracks: stream.getAudioTracks().length,
-          videoTracks: stream.getVideoTracks().length
+          videoTracks: stream.getVideoTracks().length,
+          tracks: stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState }))
         });
       } catch (error) {
         console.error("Failed to get user media:", error);
@@ -177,11 +189,21 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
     peerConnections.current.set(participantId, peerConnection);
 
-    // Add local stream to peer connection
+    // Add local stream tracks
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        console.log("Adding track to peer connection:", track.kind, "enabled:", track.enabled);
-        peerConnection.addTrack(track, localStreamRef.current!);
+      const tracks = localStreamRef.current.getTracks();
+      console.log("Adding tracks to peer connection for:", participantId, "Track count:", tracks.length);
+      
+      tracks.forEach(track => {
+        console.log("Adding track:", {
+          kind: track.kind,
+          enabled: track.enabled,
+          readyState: track.readyState,
+          participantId: participantId
+        });
+        
+        const sender = peerConnection.addTrack(track, localStreamRef.current!);
+        console.log("Track added successfully, sender:", !!sender);
       });
     } else {
       console.warn("No local stream available when creating peer connection for:", participantId);
@@ -190,10 +212,25 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     // Handle remote stream
     peerConnection.ontrack = (event) => {
       console.log("Received remote track:", event.track.kind, "from:", participantId);
+      console.log("Event streams:", event.streams.length);
+      
       const [remoteStream] = event.streams;
       if (remoteStream) {
-        setRemoteStreams(prev => new Map(prev.set(participantId, remoteStream)));
-        console.log("Added remote stream for participant:", participantId);
+        console.log("Remote stream details:", {
+          streamId: remoteStream.id,
+          audioTracks: remoteStream.getAudioTracks().length,
+          videoTracks: remoteStream.getVideoTracks().length,
+          participantId: participantId
+        });
+        
+        setRemoteStreams(prev => {
+          const newMap = new Map(prev);
+          newMap.set(participantId, remoteStream);
+          console.log("Updated remote streams map. Total streams:", newMap.size);
+          return newMap;
+        });
+      } else {
+        console.warn("No remote stream in track event for:", participantId);
       }
     };
 
@@ -216,14 +253,27 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       console.log(`Connection state changed for ${participantId}:`, peerConnection.connectionState);
       if (peerConnection.connectionState === 'connected') {
         console.log(`Successfully connected to ${participantId}`);
+        // Debug track senders
+        const senders = peerConnection.getSenders();
+        console.log(`Senders for ${participantId}:`, senders.length, senders.map(s => s.track?.kind));
       } else if (peerConnection.connectionState === 'failed') {
         console.error(`Connection failed for ${participantId}`);
       }
     };
 
-    // Handle ICE connection state changes
+    // Handle ICE connection state changes  
     peerConnection.oniceconnectionstatechange = () => {
       console.log(`ICE connection state for ${participantId}:`, peerConnection.iceConnectionState);
+      if (peerConnection.iceConnectionState === 'connected') {
+        console.log(`ICE connected for ${participantId}. Checking receivers...`);
+        const receivers = peerConnection.getReceivers();
+        console.log(`Receivers for ${participantId}:`, receivers.length, receivers.map(r => r.track?.kind));
+      }
+    };
+
+    // Debug negotiation state
+    peerConnection.onnegotiationneeded = () => {
+      console.log(`Negotiation needed for ${participantId}`);
     };
 
     // Create and send offer
@@ -327,7 +377,16 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         tracks.forEach(track => {
           console.log("Adding track to peer connection:", track.kind, "enabled:", track.enabled, "readyState:", track.readyState);
           try {
-            peerConnection!.addTrack(track, localStreamRef.current!);
+            // Check if track is already added
+            const existingSenders = peerConnection!.getSenders();
+            const trackAlreadyAdded = existingSenders.some(sender => sender.track === track);
+            
+            if (!trackAlreadyAdded) {
+              const sender = peerConnection!.addTrack(track, localStreamRef.current!);
+              console.log("Track added successfully, sender:", !!sender);
+            } else {
+              console.log("Track already added, skipping");
+            }
           } catch (err) {
             console.error("Failed to add track:", err);
           }
