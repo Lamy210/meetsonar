@@ -174,11 +174,21 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   };
 
   const createPeerConnection = async (participantId: string) => {
-    if (peerConnections.current.has(participantId)) {
-      return; // Connection already exists
+    // Check if peer connection already exists and is in good state
+    const existingPc = peerConnections.current.get(participantId);
+    if (existingPc && existingPc.connectionState !== 'closed' && existingPc.connectionState !== 'failed') {
+      console.log("Reusing existing peer connection for:", participantId, "state:", existingPc.connectionState);
+      return; // Connection already exists and is usable
     }
 
-    console.log("Creating peer connection for:", participantId);
+    // Clean up existing failed connection
+    if (existingPc) {
+      console.log("Cleaning up existing peer connection for:", participantId);
+      existingPc.close();
+      peerConnections.current.delete(participantId);
+    }
+
+    console.log("Creating new peer connection for:", participantId);
     
     const peerConnection = new RTCPeerConnection({
       iceServers: [
@@ -281,8 +291,14 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       console.log(`Signaling state changed for ${participantId}:`, peerConnection.signalingState);
     };
 
-    // Create and send offer
+    // Create and send offer (only if we haven't made one already)
     try {
+      // Check if we're already in an offering state
+      if (peerConnection.signalingState !== 'stable') {
+        console.log("Skipping offer creation - signaling state:", peerConnection.signalingState);
+        return;
+      }
+
       // Wait for local stream to be ready
       if (!localStreamRef.current) {
         console.warn("Local stream not ready when creating offer for:", participantId);
@@ -314,6 +330,19 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     console.log("Handling offer from:", participantId, "offer type:", offer.type);
     
     let peerConnection = peerConnections.current.get(participantId);
+    
+    // If we already have a connection in progress, check its state
+    if (peerConnection) {
+      if (peerConnection.signalingState === 'have-local-offer') {
+        console.log("Collision detected - we both sent offers. Ignoring incoming offer.");
+        return;
+      }
+      if (peerConnection.signalingState !== 'stable') {
+        console.log("Connection already in progress for:", participantId, "state:", peerConnection.signalingState);
+        return;
+      }
+    }
+    
     if (!peerConnection) {
       // Create a new peer connection for incoming offer
       peerConnection = new RTCPeerConnection({
@@ -445,6 +474,11 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       // Check if we're in the correct state to receive an answer
       if (peerConnection.signalingState !== 'have-local-offer') {
         console.warn(`Cannot set remote answer in state: ${peerConnection.signalingState}`);
+        // If we're in stable state, the connection might be completed already
+        if (peerConnection.signalingState === 'stable' && peerConnection.connectionState === 'connected') {
+          console.log("Connection already established for:", participantId);
+          return;
+        }
         return;
       }
 

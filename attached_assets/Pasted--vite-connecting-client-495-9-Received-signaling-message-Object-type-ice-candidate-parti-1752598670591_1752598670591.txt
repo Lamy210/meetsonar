@@ -1,0 +1,125 @@
+[vite] connecting... client:495:9
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "answer", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Cannot set remote answer in state: stable <anonymous code>:1:145535
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Added ICE candidate successfully 2 use-webrtc.tsx:493:17
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+Added ICE candidate successfully 16 use-webrtc.tsx:493:17
+ICE connection state for あ: connected use-webrtc.tsx:266:15
+ICE connected for あ. Checking receivers... use-webrtc.tsx:268:17
+Receivers for あ: 2 
+Array [ "audio", "video" ]
+use-webrtc.tsx:270:17
+Connection state changed for あ: failed use-webrtc.tsx:253:15
+Connection failed for あ <anonymous code>:1:145535
+Sending ICE candidate 2 use-webrtc.tsx:240:17
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Added ICE candidate successfully use-webrtc.tsx:493:17
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:476:13
+Received end-of-candidates marker use-webrtc.tsx:485:15
+ソースマップエラー: Error: JSON.parse: unexpected character at line 1 column 1 of the JSON data
+Stack in the worker:parseSourceMapInput@resource://devtools/client/shared/vendor/source-map/lib/util.js:163:15
+_factory@resource://devtools/client/shared/vendor/source-map/lib/source-map-consumer.js:1066:22
+SourceMapConsumer@resource://devtools/client/shared/vendor/source-map/lib/source-map-consumer.js:26:12
+_fetch@resource://devtools/client/shared/source-map-loader/utils/fetchSourceMap.js:83:19
+
+リソース URL: https://ab060c85-abff-48fa-aecb-b6a801f9d05d-00-2n3ctlvf44t2r.worf.replit.dev/room/%3Canonymous%20code%3E
+ソースマップ URL: installHook.js.map
+
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+Video enabled use-webrtc.tsx:573:17
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+Setting video source for You: 
+Object { streamId: "{89aabc0d-b79c-43b3-b692-e23d656754fd}", trackCount: 2, audioTracks: 1, videoTracks: 1, isLocal: true }
+video-grid.tsx:29:15
+Video started playing for You video-grid.tsx:69:23
+Video metadata loaded for You video-grid.tsx:66:23
+Video playing successfully for You video-grid.tsx:43:19
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:131:11
