@@ -161,16 +161,21 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     // Add local stream to peer connection
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
-        console.log("Adding track to peer connection:", track.kind);
+        console.log("Adding track to peer connection:", track.kind, "enabled:", track.enabled);
         peerConnection.addTrack(track, localStreamRef.current!);
       });
+    } else {
+      console.warn("No local stream available when creating peer connection for:", participantId);
     }
 
     // Handle remote stream
     peerConnection.ontrack = (event) => {
-      console.log("Received remote track:", event.track.kind);
+      console.log("Received remote track:", event.track.kind, "from:", participantId);
       const [remoteStream] = event.streams;
-      setRemoteStreams(prev => new Map(prev.set(participantId, remoteStream)));
+      if (remoteStream) {
+        setRemoteStreams(prev => new Map(prev.set(participantId, remoteStream)));
+        console.log("Added remote stream for participant:", participantId);
+      }
     };
 
     // Handle ICE candidates
@@ -189,7 +194,17 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
     // Handle connection state changes
     peerConnection.onconnectionstatechange = () => {
-      console.log("Connection state changed:", peerConnection.connectionState);
+      console.log(`Connection state changed for ${participantId}:`, peerConnection.connectionState);
+      if (peerConnection.connectionState === 'connected') {
+        console.log(`Successfully connected to ${participantId}`);
+      } else if (peerConnection.connectionState === 'failed') {
+        console.error(`Connection failed for ${participantId}`);
+      }
+    };
+
+    // Handle ICE connection state changes
+    peerConnection.oniceconnectionstatechange = () => {
+      console.log(`ICE connection state for ${participantId}:`, peerConnection.iceConnectionState);
     };
 
     // Create and send offer
@@ -261,7 +276,17 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
       // Handle connection state changes
       peerConnection.onconnectionstatechange = () => {
-        console.log("Connection state changed:", peerConnection!.connectionState);
+        console.log(`Connection state changed for ${participantId}:`, peerConnection!.connectionState);
+        if (peerConnection!.connectionState === 'connected') {
+          console.log(`Successfully connected to ${participantId}`);
+        } else if (peerConnection!.connectionState === 'failed') {
+          console.error(`Connection failed for ${participantId}`);
+        }
+      };
+
+      // Handle ICE connection state changes
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log(`ICE connection state for ${participantId}:`, peerConnection!.iceConnectionState);
       };
     }
 
@@ -287,22 +312,41 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
   const handleAnswer = async (participantId: string, answer: RTCSessionDescriptionInit) => {
     const peerConnection = peerConnections.current.get(participantId);
-    if (!peerConnection) return;
+    if (!peerConnection) {
+      console.warn("No peer connection found for answer from:", participantId);
+      return;
+    }
 
-    await peerConnection.setRemoteDescription(answer);
+    try {
+      await peerConnection.setRemoteDescription(answer);
+      console.log("Set remote description (answer) successfully for:", participantId);
+    } catch (error) {
+      console.error("Failed to set remote description (answer):", error);
+    }
   };
 
   const handleIceCandidate = async (participantId: string, candidate: RTCIceCandidateInit) => {
     console.log("Handling ICE candidate from:", participantId);
     const peerConnection = peerConnections.current.get(participantId);
     if (!peerConnection) {
-      console.warn("No peer connection found for ICE candidate");
+      console.warn("No peer connection found for ICE candidate from:", participantId);
+      return;
+    }
+
+    // Skip empty candidates (end-of-candidates marker)
+    if (!candidate.candidate) {
+      console.log("Received end-of-candidates marker");
       return;
     }
 
     try {
-      await peerConnection.addIceCandidate(candidate);
-      console.log("Added ICE candidate successfully");
+      // Ensure we have a remote description before adding ICE candidates
+      if (peerConnection.remoteDescription) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log("Added ICE candidate successfully");
+      } else {
+        console.warn("Cannot add ICE candidate: no remote description set yet");
+      }
     } catch (error) {
       console.error("Failed to add ICE candidate:", error);
     }
