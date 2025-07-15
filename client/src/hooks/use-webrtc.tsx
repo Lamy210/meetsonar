@@ -130,8 +130,10 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
           console.log("Adding new participant:", message.payload.connectionId);
           return [...prev, message.payload];
         });
-        // Create peer connection for the new participant
-        await createPeerConnection(message.payload.connectionId);
+        // Create peer connection for the new participant (only if it's not us)
+        if (message.payload.connectionId !== displayName) {
+          await createPeerConnection(message.payload.connectionId);
+        }
         break;
       
       case "participant-left":
@@ -400,13 +402,34 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
       peerConnections.current.set(participantId, peerConnection);
 
+      // Add local stream tracks immediately for incoming offer
+      if (localStreamRef.current) {
+        const tracks = localStreamRef.current.getTracks();
+        console.log("Adding local tracks to incoming peer connection for:", participantId, "Track count:", tracks.length);
+        
+        tracks.forEach(track => {
+          console.log("Adding track to incoming connection:", {
+            kind: track.kind,
+            enabled: track.enabled,
+            participantId: participantId
+          });
+          
+          const sender = peerConnection.addTrack(track, localStreamRef.current!);
+          console.log("Track added to incoming connection, sender track:", sender.track?.kind);
+        });
+      }
+
       // Handle remote stream
       peerConnection.ontrack = (event) => {
         console.log("Received remote track:", event.track.kind, "from:", participantId);
         const [remoteStream] = event.streams;
         if (remoteStream) {
-          setRemoteStreams(prev => new Map(prev.set(participantId, remoteStream)));
-          console.log("Added remote stream for participant:", participantId);
+          setRemoteStreams(prev => {
+            const newMap = new Map(prev);
+            newMap.set(participantId, remoteStream);
+            console.log("Added remote stream for participant:", participantId, "Total streams:", newMap.size);
+            return newMap;
+          });
         }
       };
 

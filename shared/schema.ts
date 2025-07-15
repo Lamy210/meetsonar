@@ -58,7 +58,18 @@ export type Participant = typeof participants.$inferSelect;
 
 // WebRTC signaling message types
 export const signalingMessageSchema = z.object({
-  type: z.enum(['offer', 'answer', 'ice-candidate', 'join-room', 'leave-room', 'participant-update']),
+  type: z.enum([
+    'offer', 
+    'answer', 
+    'ice-candidate', 
+    'join-room', 
+    'leave-room', 
+    'participant-update',
+    'participants-list',
+    'participant-joined',
+    'participant-left',
+    'participant-updated'
+  ]),
   roomId: z.string(),
   participantId: z.string().optional(),
   payload: z.any(),
