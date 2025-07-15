@@ -1,0 +1,878 @@
+# ビデオ/音声通話RPCサーバー要件定義書（Hetzner VPS単一サーバー版）
+
+## 1. はじめに
+
+### 1.1 目的
+高性能・高安定性のビデオ/音声通話RPCサーバーを、Hetzner VPS 1台で構築・運用する。単一サーバー構成でありながら、適切な設計により信頼性の高いサービスを提供する。
+
+### 1.2 対象読者
+プロジェクトマネージャー、開発チーム、運用チーム、セキュリティ担当者
+
+### 1.3 前提条件
+- **インフラ**: Hetzner VPS 1台のみ（自社データセンターなし）
+- **スケール**: 垂直スケーリングのみ（VPSアップグレード）
+- **冗長性**: 単一障害点を許容（コスト最適化優先）
+- **バックアップ**: Hetzner提供のスナップショット機能を活用
+
+---
+
+## 2. システム概要
+
+### 2.1 アーキテクチャ概要
+
+```mermaid
+graph TB
+    subgraph "Internet"
+        Client1[Web Browser]
+        Client2[iOS/Android App]
+        Client3[Desktop App]
+    end
+    
+    subgraph "Hetzner VPS"
+        subgraph "Frontend Layer"
+            NGINX[Nginx<br/>Reverse Proxy + SSL]
+        end
+        
+        subgraph "Application Layer"
+            API[API Server<br/>gRPC + REST]
+            SFU[SFU Server<br/>WebRTC Media]
+            AUTH[Auth Service]
+        end
+        
+        subgraph "Data Layer"
+            PG[PostgreSQL<br/>Primary DB]
+            REDIS[Redis<br/>Cache + Session]
+            MINIO[MinIO<br/>Object Storage]
+        end
+        
+        subgraph "Supporting Services"
+            TURN[Coturn<br/>TURN/STUN]
+            PROM[Prometheus<br/>Monitoring]
+        end
+    end
+    
+    Client1 --> NGINX
+    Client2 --> NGINX
+    Client3 --> NGINX
+    
+    NGINX --> API
+    NGINX --> SFU
+    API --> AUTH
+    API --> PG
+    API --> REDIS
+    SFU --> REDIS
+    SFU --> MINIO
+    SFU --> TURN
+```
+
+### 2.2 技術スタック
+
+| コンポーネント | 技術選定 | 理由 |
+|-------------|---------|------|
+| **OS** | Ubuntu 22.04 LTS | 長期サポート、安定性 |
+| **Web Server** | Nginx | 高性能、リバースプロキシ |
+| **API Framework** | Go + gRPC | 高性能、並行処理 |
+| **SFU** | Pion WebRTC | Go製、軽量 |
+| **Database** | PostgreSQL 15 | ACID準拠、信頼性 |
+| **Cache** | Redis 7 | 高速、セッション管理 |
+| **Object Storage** | MinIO | S3互換、ローカル動作 |
+| **TURN/STUN** | Coturn | 実績、安定性 |
+| **Container** | Docker + Docker Compose | 環境統一、デプロイ簡素化 |
+| **Monitoring** | Prometheus + Grafana | 軽量、可視化 |
+
+---
+
+## 3. 機能要件
+
+### 3.1 通話セッション管理
+
+#### 3.1.1 基本機能
+
+```protobuf
+service CallService {
+  // セッション管理
+  rpc StartCall(StartCallRequest) returns (StartCallResponse);
+  rpc JoinCall(JoinCallRequest) returns (JoinCallResponse);
+  rpc LeaveCall(LeaveCallRequest) returns (LeaveCallResponse);
+  rpc EndCall(EndCallRequest) returns (EndCallResponse);
+  
+  // メディアストリーミング
+  rpc StreamMedia(stream MediaPacket) returns (stream MediaPacket);
+  
+  // 状態管理
+  rpc GetCallStatus(GetCallStatusRequest) returns (GetCallStatusResponse);
+}
+```
+
+#### 3.1.2 制限事項（単一VPS）
+
+| 項目 | 制限値 | 備考 |
+|------|--------|------|
+| **同時セッション数** | 最大100 | CPU/メモリ依存 |
+| **セッションあたり参加者** | 最大10名 | 帯域幅制約 |
+| **録画同時実行** | 最大5セッション | ストレージI/O制約 |
+| **総同時接続ユーザー** | 最大500名 | メモリ制約 |
+
+### 3.2 メディア処理
+
+#### 3.2.1 対応コーデック
+
+```yaml
+audio_codecs:
+  - codec: "Opus"
+    bitrate: "32-128 kbps"
+    sample_rate: "48 kHz"
+    channels: "1-2 (mono/stereo)"
+    
+video_codecs:
+  - codec: "H.264"
+    profile: "Baseline/Main"
+    resolution: "360p-1080p"
+    framerate: "15-30 fps"
+    bitrate: "500-4000 kbps"
+  
+  - codec: "VP8"
+    resolution: "360p-720p"
+    framerate: "15-30 fps"
+    bitrate: "500-2000 kbps"
+```
+
+#### 3.2.2 品質調整（単一サーバー制約）
+
+```go
+type QualityProfile struct {
+    Name        string
+    MaxBitrate  int
+    Resolution  string
+    Framerate   int
+    Priority    int
+}
+
+var QualityProfiles = []QualityProfile{
+    {"Low", 500, "360p", 15, 1},      // 低品質・低負荷
+    {"Medium", 1000, "480p", 24, 2},   // 中品質・中負荷
+    {"High", 2000, "720p", 30, 3},     // 高品質・高負荷
+    {"Auto", 0, "adaptive", 0, 0},     // 自動調整
+}
+```
+
+---
+
+## 4. 非機能要件
+
+### 4.1 パフォーマンス要件
+
+#### 4.1.1 単一VPS性能目標
+
+| メトリクス | 目標値 | 測定条件 |
+|-----------|--------|----------|
+| **API応答時間** | <100ms (95%ile) | 通常負荷時 |
+| **接続確立時間** | <3秒 | P2P/TURN切替含む |
+| **メディア遅延** | <200ms | 同一リージョン内 |
+| **パケットロス率** | <1% | 通常ネットワーク状態 |
+| **CPU使用率** | <80% | ピーク時 |
+| **メモリ使用率** | <85% | ピーク時 |
+
+#### 4.1.2 容量計画
+
+```yaml
+capacity_planning:
+  vps_specs:
+    model: "Hetzner CPX51"  # 推奨モデル
+    vcpu: 16
+    ram: "32GB"
+    storage: "360GB NVMe"
+    bandwidth: "20TB/月"
+    
+  resource_allocation:
+    system_os: "2GB RAM, 10GB Storage"
+    nginx: "1GB RAM, 1 vCPU"
+    api_server: "4GB RAM, 4 vCPU"
+    sfu_server: "16GB RAM, 8 vCPU"
+    postgresql: "4GB RAM, 2 vCPU, 50GB Storage"
+    redis: "2GB RAM, 1 vCPU"
+    minio: "2GB RAM, 200GB Storage"
+    monitoring: "1GB RAM, 1 vCPU"
+```
+
+### 4.2 可用性要件
+
+#### 4.2.1 SLA目標（単一サーバー制約あり）
+
+| サービスレベル | 目標 | 月間ダウンタイム許容 |
+|---------------|------|-------------------|
+| **Standard** | 99.5% | 3.6時間 |
+| **メンテナンス時間** | 毎週日曜 02:00-04:00 JST | 計画停止 |
+| **緊急メンテナンス** | 必要時随時 | 24時間前通知 |
+
+#### 4.2.2 障害対策
+
+```yaml
+failure_mitigation:
+  automatic_recovery:
+    - service: "全サービス"
+      method: "systemd自動再起動"
+      retry: "3回まで"
+      interval: "30秒"
+      
+  manual_recovery:
+    - scenario: "VPS障害"
+      action: "Hetznerスナップショットから復旧"
+      rto: "1-2時間"
+      rpo: "24時間（日次バックアップ）"
+      
+  degraded_mode:
+    - trigger: "高負荷検知（CPU>90%）"
+      action: 
+        - "新規セッション受付停止"
+        - "録画機能一時停止"
+        - "品質自動低下"
+```
+
+### 4.3 セキュリティ要件
+
+#### 4.3.1 ネットワークセキュリティ
+
+```yaml
+firewall_rules:
+  ingress:
+    - port: 22
+      source: "管理者IP only"
+      protocol: "TCP"
+      description: "SSH管理"
+      
+    - port: 80
+      source: "0.0.0.0/0"
+      protocol: "TCP"
+      description: "HTTP (redirect to HTTPS)"
+      
+    - port: 443
+      source: "0.0.0.0/0"
+      protocol: "TCP"
+      description: "HTTPS/WSS"
+      
+    - port: "3478"
+      source: "0.0.0.0/0"
+      protocol: "TCP/UDP"
+      description: "TURN/STUN"
+      
+    - port: "49152-65535"
+      source: "0.0.0.0/0"
+      protocol: "UDP"
+      description: "WebRTC Media"
+      
+  egress:
+    - destination: "0.0.0.0/0"
+      protocol: "all"
+      description: "Allow all outbound"
+```
+
+#### 4.3.2 アプリケーションセキュリティ
+
+```go
+// セキュリティ設定
+type SecurityConfig struct {
+    // JWT設定
+    JWTSecret          string
+    JWTExpiration      time.Duration
+    RefreshExpiration  time.Duration
+    
+    // レート制限
+    RateLimitPerIP     int    // 100 req/min
+    RateLimitPerUser   int    // 1000 req/min
+    
+    // セッション管理
+    MaxSessionsPerUser int    // 5
+    SessionTimeout     time.Duration
+    
+    // 暗号化
+    TLSMinVersion     uint16 // TLS 1.2
+    AllowedCiphers    []uint16
+}
+```
+
+---
+
+## 5. インフラ構成詳細
+
+### 5.1 Hetzner VPS設定
+
+#### 5.1.1 推奨VPSスペック
+
+```yaml
+hetzner_vps_config:
+  # 本番環境推奨
+  production:
+    model: "CPX51"
+    location: "nbg1"  # Nuremberg, Germany
+    specs:
+      vcpu: 16
+      ram: "32GB"
+      storage: "360GB NVMe"
+      bandwidth: "20TB"
+      ipv4: 1
+      ipv6: "/64"
+    price: "€49.90/month"
+    
+  # 開発/ステージング環境
+  development:
+    model: "CPX31"
+    specs:
+      vcpu: 8
+      ram: "16GB"
+      storage: "160GB NVMe"
+    price: "€22.90/month"
+```
+
+#### 5.1.2 ディスクパーティション
+
+```bash
+# ディスク構成
+/dev/sda1   /boot     1GB    ext4
+/dev/sda2   /         50GB   ext4
+/dev/sda3   /var      50GB   ext4
+/dev/sda4   /data     250GB  ext4  # アプリケーションデータ
+/dev/sda5   swap      8GB    swap
+```
+
+### 5.2 Docker Compose構成
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: videocall-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf:/etc/nginx/conf.d
+      - ./ssl:/etc/nginx/ssl
+      - ./static:/usr/share/nginx/html
+    depends_on:
+      - api
+      - sfu
+    restart: always
+    
+  api:
+    build: ./api
+    container_name: videocall-api
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/videocall
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - ./api/config:/app/config
+    depends_on:
+      - postgres
+      - redis
+    restart: always
+    
+  sfu:
+    build: ./sfu
+    container_name: videocall-sfu
+    ports:
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      - "49152-65535:49152-65535/udp"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=minio:9000
+    volumes:
+      - ./sfu/config:/app/config
+    depends_on:
+      - redis
+      - minio
+    restart: always
+    
+  postgres:
+    image: postgres:15-alpine
+    container_name: videocall-postgres
+    environment:
+      - POSTGRES_DB=videocall
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    restart: always
+    
+  redis:
+    image: redis:7-alpine
+    container_name: videocall-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: always
+    
+  minio:
+    image: minio/minio
+    container_name: videocall-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    restart: always
+    
+  coturn:
+    image: coturn/coturn
+    container_name: videocall-turn
+    network_mode: host
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf
+    restart: always
+    
+  prometheus:
+    image: prom/prometheus
+    container_name: videocall-prometheus
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=30d'
+    restart: always
+    
+  grafana:
+    image: grafana/grafana
+    container_name: videocall-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+```
+
+---
+
+## 6. 運用・監視
+
+### 6.1 監視戦略（単一サーバー）
+
+#### 6.1.1 監視項目
+
+```yaml
+monitoring_items:
+  system_metrics:
+    - metric: "CPU使用率"
+      warning: "70%"
+      critical: "85%"
+      action: "負荷分散不可のため品質低下で対応"
+      
+    - metric: "メモリ使用率"
+      warning: "75%"
+      critical: "90%"
+      action: "不要なセッションの強制終了"
+      
+    - metric: "ディスク使用率"
+      warning: "70%"
+      critical: "85%"
+      action: "古い録画ファイルの自動削除"
+      
+    - metric: "ネットワーク帯域"
+      warning: "15TB/月"
+      critical: "18TB/月"
+      action: "ビットレート制限強化"
+      
+  application_metrics:
+    - metric: "同時セッション数"
+      warning: "80"
+      critical: "95"
+      action: "新規セッション受付停止"
+      
+    - metric: "API応答時間"
+      warning: "200ms"
+      critical: "500ms"
+      action: "キャッシュ積極活用"
+```
+
+#### 6.1.2 アラート設定
+
+```yaml
+# alertmanager.yml
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 10s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default'
+  
+  routes:
+  - match:
+      severity: critical
+    receiver: 'critical-alerts'
+    repeat_interval: 1h
+
+receivers:
+- name: 'default'
+  email_configs:
+  - to: 'ops-team@company.com'
+    from: 'alerts@videocall.company.com'
+    
+- name: 'critical-alerts'
+  email_configs:
+  - to: 'oncall@company.com'
+  slack_configs:
+  - api_url: '${SLACK_WEBHOOK}'
+    channel: '#alerts-critical'
+```
+
+### 6.2 バックアップ戦略
+
+#### 6.2.1 バックアップ計画
+
+```yaml
+backup_strategy:
+  database_backup:
+    type: "PostgreSQL pg_dump"
+    frequency: "毎日 02:00"
+    retention: "7日間"
+    storage: "ローカル + Hetzner Storage Box"
+    
+  media_files_backup:
+    type: "MinIO sync"
+    frequency: "毎日 03:00"
+    retention: "30日間"
+    storage: "Hetzner Storage Box"
+    
+  configuration_backup:
+    type: "設定ファイル + Docker volumes"
+    frequency: "変更時 + 週次"
+    retention: "30日間"
+    storage: "Git + Hetzner Storage Box"
+    
+  full_system_backup:
+    type: "Hetzner Snapshot"
+    frequency: "週次（日曜 04:00）"
+    retention: "2世代"
+    restore_time: "約30分"
+```
+
+#### 6.2.2 自動バックアップスクリプト
+
+```bash
+#!/bin/bash
+# backup.sh - 日次バックアップスクリプト
+
+set -e
+
+BACKUP_DIR="/data/backups/$(date +%Y%m%d)"
+STORAGE_BOX="u123456.your-storagebox.de"
+
+# Create backup directory
+mkdir -p ${BACKUP_DIR}
+
+# 1. Database backup
+echo "Backing up PostgreSQL..."
+docker exec videocall-postgres pg_dump -U postgres videocall | gzip > ${BACKUP_DIR}/postgres.sql.gz
+
+# 2. Redis backup
+echo "Backing up Redis..."
+docker exec videocall-redis redis-cli BGSAVE
+sleep 10
+docker cp videocall-redis:/data/dump.rdb ${BACKUP_DIR}/redis.rdb
+
+# 3. MinIO data sync
+echo "Syncing MinIO data..."
+docker run --rm -v minio_data:/data:ro -v ${BACKUP_DIR}:/backup \
+  minio/mc mirror /data /backup/minio
+
+# 4. Configuration files
+echo "Backing up configurations..."
+tar czf ${BACKUP_DIR}/configs.tar.gz \
+  ./docker-compose.yml \
+  ./nginx \
+  ./api/config \
+  ./sfu/config
+
+# 5. Upload to Hetzner Storage Box
+echo "Uploading to Storage Box..."
+rsync -avz --delete ${BACKUP_DIR} ${STORAGE_BOX}:/backups/
+
+# 6. Cleanup old backups (keep 7 days)
+find /data/backups -type d -mtime +7 -exec rm -rf {} \;
+
+echo "Backup completed successfully"
+```
+
+### 6.3 デプロイメント手順
+
+#### 6.3.1 初期セットアップ
+
+```bash
+#!/bin/bash
+# setup.sh - 初期セットアップスクリプト
+
+# 1. システム更新
+apt update && apt upgrade -y
+
+# 2. 必要なパッケージインストール
+apt install -y \
+  docker.io \
+  docker-compose \
+  nginx \
+  certbot \
+  python3-certbot-nginx \
+  htop \
+  iotop \
+  nethogs \
+  fail2ban
+
+# 3. Docker設定
+systemctl enable docker
+usermod -aG docker $USER
+
+# 4. ファイアウォール設定
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 3478/tcp
+ufw allow 3478/udp
+ufw allow 49152:65535/udp
+ufw --force enable
+
+# 5. Swappiness調整（メモリ優先）
+echo "vm.swappiness=10" >> /etc/sysctl.conf
+sysctl -p
+
+# 6. ファイルディスクリプタ上限増加
+cat >> /etc/security/limits.conf <<EOF
+* soft nofile 65536
+* hard nofile 65536
+* soft nproc 65536
+* hard nproc 65536
+EOF
+
+# 7. SSL証明書取得
+certbot --nginx -d videocall.company.com --non-interactive --agree-tos -m admin@company.com
+
+# 8. 自動バックアップ設定
+crontab -l | { cat; echo "0 2 * * * /opt/videocall/scripts/backup.sh"; } | crontab -
+
+echo "Setup completed!"
+```
+
+#### 6.3.2 デプロイプロセス
+
+```yaml
+deployment_process:
+  preparation:
+    - step: "新バージョンのテスト"
+      environment: "ローカル開発環境"
+      duration: "1-2時間"
+      
+    - step: "バックアップ実行"
+      command: "./scripts/backup.sh"
+      duration: "30分"
+      
+    - step: "メンテナンス通知"
+      method: "Email + Webサイト告知"
+      timing: "24時間前"
+      
+  deployment:
+    - step: "メンテナンスモード有効化"
+      command: "docker exec videocall-nginx nginx -s reload"
+      duration: "1分"
+      
+    - step: "新イメージビルド"
+      command: "docker-compose build"
+      duration: "10分"
+      
+    - step: "サービス更新"
+      command: "docker-compose up -d"
+      duration: "5分"
+      downtime: "約30秒"
+      
+    - step: "ヘルスチェック"
+      command: "./scripts/health_check.sh"
+      duration: "5分"
+      
+  rollback:
+    trigger: "ヘルスチェック失敗"
+    command: "docker-compose down && ./scripts/restore_backup.sh"
+    duration: "15分"
+```
+
+---
+
+## 7. コスト概算
+
+### 7.1 月額費用内訳
+
+| 項目 | 費用 | 備考 |
+|------|------|------|
+| **Hetzner CPX51** | €49.90 | 本番環境VPS |
+| **Hetzner Storage Box (1TB)** | €3.20 | バックアップ用 |
+| **追加トラフィック** | €1/TB | 20TB超過分 |
+| **ドメイン** | €1.00 | 年額€12を月割 |
+| **SSL証明書** | €0 | Let's Encrypt |
+| **監視サービス** | €0 | セルフホスト |
+| **合計（基本）** | **€54.10** | 約9,000円 |
+| **合計（トラフィック込）** | **€64.10** | 約10,500円（30TB想定） |
+
+### 7.2 スケーリング時の費用
+
+```yaml
+scaling_costs:
+  vertical_scaling:
+    - current: "CPX51 (16vCPU, 32GB)"
+      cost: "€49.90/月"
+      capacity: "100セッション"
+      
+    - upgrade_option_1: "Dedicated CCX33 (8vCPU, 32GB)"
+      cost: "€104.90/月"
+      capacity: "150セッション"
+      benefit: "専用CPU、性能保証"
+      
+    - upgrade_option_2: "Dedicated CCX43 (16vCPU, 64GB)"
+      cost: "€209.90/月"
+      capacity: "300セッション"
+      benefit: "2倍のリソース"
+      
+  migration_to_multi_server:
+    description: "負荷分散が必要な場合"
+    architecture: "Load Balancer + 2 CPX31"
+    cost: "€45.80 + €10 (LB) = €55.80/月"
+    capacity: "200セッション"
+    complexity: "高（アーキテクチャ変更必要）"
+```
+
+---
+
+## 8. リスク管理
+
+### 8.1 単一障害点のリスク
+
+```yaml
+single_point_of_failure_risks:
+  hardware_failure:
+    risk: "VPSハードウェア障害"
+    probability: "低"
+    impact: "全サービス停止"
+    mitigation:
+      - "日次バックアップ"
+      - "Hetznerスナップショット"
+      - "復旧手順書整備"
+    rto: "1-2時間"
+    
+  network_failure:
+    risk: "ネットワーク障害"
+    probability: "低"
+    impact: "サービスアクセス不可"
+    mitigation:
+      - "Hetzner SLA 99.9%"
+      - "代替通信手段の準備"
+    
+  resource_exhaustion:
+    risk: "リソース枯渇"
+    probability: "中"
+    impact: "サービス品質低下"
+    mitigation:
+      - "リソース監視強化"
+      - "自動制限機能"
+      - "緊急時手順書"
+```
+
+### 8.2 運用リスク
+
+```yaml
+operational_risks:
+  human_error:
+    risk: "設定ミス・誤操作"
+    mitigation:
+      - "設定変更レビュープロセス"
+      - "自動化推進"
+      - "ロールバック手順"
+      
+  security_breach:
+    risk: "不正アクセス・攻撃"
+    mitigation:
+      - "Fail2ban導入"
+      - "定期的セキュリティ更新"
+      - "最小権限原則"
+      
+  capacity_planning:
+    risk: "想定以上の利用増加"
+    mitigation:
+      - "利用状況の定期レビュー"
+      - "段階的な制限実装"
+      - "アップグレード計画"
+```
+
+---
+
+## 9. 移行・拡張計画
+
+### 9.1 将来の拡張オプション
+
+```yaml
+expansion_roadmap:
+  phase1_current:
+    description: "単一VPS運用"
+    capacity: "100同時セッション"
+    architecture: "All-in-one"
+    
+  phase2_vertical:
+    trigger: "CPU使用率>70% or メモリ>80%"
+    action: "VPSアップグレード"
+    timeline: "即時（数分のダウンタイム）"
+    
+  phase3_horizontal:
+    trigger: "単一サーバー限界"
+    architecture:
+      - "Load Balancer追加"
+      - "アプリケーションサーバー分離"
+      - "データベース専用サーバー"
+    timeline: "計画的移行（1-2週間）"
+    
+  phase4_multi_region:
+    trigger: "グローバル展開"
+    architecture:
+      - "複数リージョン展開"
+      - "CDN導入"
+      - "地理的冗長性"
+    timeline: "3-6ヶ月計画"
+```
+
+---
+
+## 10. まとめ
+
+本要件定義書は、Hetzner VPS 1台での運用を前提とした、現実的かつコスト効率の高いビデオ/音声通話システムの構築を目指しています。
+
+### 10.1 主な特徴
+- **シンプル**: 単一サーバー構成で運用が容易
+- **低コスト**: 月額約1万円で運用可能
+- **実用的**: 小〜中規模利用に十分な性能
+- **拡張可能**: 将来的なスケールアップ/アウトに対応
+
+### 10.2 制約事項
+- **単一障害点**: 冗長性なし
+- **容量制限**: VPSスペックに依存
+- **地理的制約**: 単一リージョンのみ
+
+### 10.3 推奨事項
+1. **定期的なバックアップ**を確実に実施
+2. **リソース監視**を常時行い、早期に対応
+3. **段階的な拡張計画**を準備
+4. **セキュリティ更新**を怠らない
+
+本システムは、スタートアップや小規模組織に最適な、実用的なビデオ通話ソリューションとなります。

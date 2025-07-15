@@ -1,0 +1,296 @@
+## 3. ステークホルダーと責任分担
+
+### 3.1 ステークホルダーマップ
+
+```mermaid
+graph TB
+    subgraph "内部ステークホルダー"
+        PO[プロダクトオーナー<br/>意思決定・予算承認]
+        PM[プロジェクトマネージャー<br/>進捗・リスク管理]
+        TECH[技術リード<br/>アーキテクチャ設計]
+        DEV[開発チーム<br/>実装・テスト]
+        OPS[運用チーム<br/>監視・保守]
+    end
+    
+    subgraph "外部ステークホルダー"
+        HETZNER[Hetzner<br/>VPSプロバイダー]
+        USER[エンドユーザー<br/>サービス利用者]
+        AUDIT[監査・コンプライアンス<br/>法規制遵守]
+    end
+    
+    PO --> PM
+    PM --> TECH
+    PM --> DEV
+    PM --> OPS
+    TECH --> DEV
+    OPS --> HETZNER
+    USER --> OPS
+    AUDIT --> PO
+```
+
+### 3.2 内部ステークホルダー詳細
+
+#### 3.2.1 プロダクトオーナー（PO）
+**目的**: ビジネス価値の最大化とROI確保
+
+**主要責任**:
+- プロダクトビジョン・ロードマップ策定
+- 予算承認（月額€100以内）
+- 機能優先順位決定
+- SLA定義（99.5%可用性）
+
+**成功指標**:
+- 月間アクティブユーザー数
+- サービス稼働率
+- コスト効率（€/ユーザー）
+
+**推奨要件**:
+- ビジネス戦略理解
+- 技術的基礎知識
+- データドリブンな意思決定能力
+
+---
+
+#### 3.2.2 プロジェクトマネージャー（PM）
+**目的**: プロジェクトの確実な遂行と品質担保
+
+**主要責任**:
+- スケジュール管理（3ヶ月でMVPリリース）
+- リスク管理・課題解決
+- ステークホルダー調整
+- 週次進捗報告
+
+**成果物**:
+| 成果物 | 頻度 | 形式 |
+|--------|------|------|
+| プロジェクト計画書 | 初回 | Ganttチャート |
+| 進捗報告書 | 週次 | ダッシュボード |
+| リスク管理表 | 週次更新 | スプレッドシート |
+| 変更管理ログ | 随時 | チケット管理 |
+
+**推奨要件**:
+- アジャイル手法の実践経験
+- 技術プロジェクト管理経験3年以上
+- PMP/スクラムマスター資格（推奨）
+
+---
+
+#### 3.2.3 技術リード（アーキテクト）
+**目的**: 単一VPS制約下での最適アーキテクチャ実現
+
+**主要責任**:
+- システムアーキテクチャ設計
+- 技術選定の根拠説明
+- パフォーマンス目標設定
+- コードレビュー基準策定
+
+**重要な技術的決定事項**:
+```yaml
+architecture_decisions:
+  language: 
+    choice: "Go 1.21+"
+    rationale: "低レイテンシ、高並行性、メモリ効率"
+    alternative: "Rust（学習コスト高）"
+    
+  media_framework:
+    choice: "Pion WebRTC"
+    rationale: "Go native、活発なコミュニティ、実績"
+    benchmark: "1000 concurrent streams on 8 cores"
+    
+  database:
+    choice: "PostgreSQL 15 + Redis 7"
+    rationale: "ACID保証 + 高速セッション管理"
+    constraint: "同一VPS内のため、接続プール最適化必須"
+    
+  monitoring:
+    choice: "Prometheus + Grafana (minimal setup)"
+    rationale: "リソース消費 <5%、必要十分な可視性"
+```
+
+**理論的根拠**:
+- [The Go Programming Language Specification](https://go.dev/ref/spec)
+- [Pion WebRTC Benchmarks](https://github.com/pion/webrtc/wiki/Benchmarks)
+- メモリ使用量: Go（〜2GB） vs Node.js（〜4GB）for 100接続
+
+---
+
+#### 3.2.4 開発チーム（2-3名想定）
+**目的**: 高品質なコード実装とテスト
+
+**役割分担**:
+| 役割 | 担当領域 | 必要スキル |
+|------|---------|-----------|
+| バックエンドエンジニア | gRPC API、SFU実装 | Go、WebRTC、並行処理 |
+| フロントエンドエンジニア | Web UI、SDK | TypeScript、React、WebRTC API |
+| DevOpsエンジニア（兼任） | CI/CD、監視設定 | Docker、Prometheus、Shell |
+
+**コーディング規約**:
+```go
+// 例: エラーハンドリング標準
+func (s *SFUServer) CreateSession(ctx context.Context, req *CreateSessionRequest) (*Session, error) {
+    // 入力検証
+    if err := req.Validate(); err != nil {
+        return nil, status.Errorf(codes.InvalidArgument, "invalid request: %v", err)
+    }
+    
+    // リソース制限チェック
+    if s.sessionCount.Load() >= MaxSessions {
+        return nil, status.Error(codes.ResourceExhausted, "server at capacity")
+    }
+    
+    // 処理実行
+    session, err := s.createSessionInternal(ctx, req)
+    if err != nil {
+        s.metrics.RecordError("create_session", err)
+        return nil, status.Errorf(codes.Internal, "failed to create session: %v", err)
+    }
+    
+    return session, nil
+}
+```
+
+---
+
+#### 3.2.5 運用チーム（1-2名、開発と兼任可）
+**目的**: 24×7サービス稼働と迅速な障害対応
+
+**主要責任**:
+- 監視アラート対応（15分以内）
+- 定期メンテナンス実施
+- バックアップ・リストア
+- インシデント管理
+
+**オンコール体制**:
+```yaml
+oncall_schedule:
+  primary:
+    coverage: "平日 9:00-21:00 JST"
+    response_time: "15分以内"
+    escalation: "1時間後にsecondary"
+    
+  secondary:
+    coverage: "24×7"
+    response_time: "30分以内"
+    escalation: "2時間後に技術リード"
+    
+  compensation:
+    weekday: "代休0.5日/週"
+    weekend: "代休1日/週"
+    incident_bonus: "¥5,000/インシデント"
+```
+
+**運用ツールセット**:
+- 監視: Prometheus + Grafana + Alertmanager
+- ログ: Loki (軽量版ELK代替)
+- アラート通知: Email + Slack + PagerDuty互換OSS
+
+---
+
+### 3.3 外部ステークホルダー詳細
+
+#### 3.3.1 Hetzner（インフラプロバイダー）
+**関係性**: サービス提供者
+
+**SLA要件**:
+- ネットワーク可用性: 99.9%
+- ハードウェア故障時の交換: 1時間以内
+- サポート応答時間: 1時間以内（英語）
+
+**コミュニケーション**:
+- 定期: 月次利用レポート確認
+- 随時: 障害時のチケット起票
+- 緊急: 電話サポート（追加料金）
+
+**リスク**:
+- 単一プロバイダー依存
+- 欧州リージョンのみ（アジアユーザーへの遅延）
+
+---
+
+#### 3.3.2 エンドユーザー
+**セグメント分類**:
+
+| セグメント | 割合 | 特徴 | 要求水準 |
+|-----------|------|------|----------|
+| パワーユーザー | 20% | 毎日利用、高品質要求 | 遅延<100ms、HD画質 |
+| 一般ユーザー | 60% | 週数回利用 | 安定性重視 |
+| ライトユーザー | 20% | 月数回利用 | 簡単な操作性 |
+
+**サポート体制**:
+- セルフサービス: FAQとビデオガイド
+- チケットサポート: 24時間以内返信
+- 緊急サポート: なし（コスト制約）
+
+---
+
+### 3.4 RACI責任分担マトリクス
+
+| タスク | PO | PM | Tech | Dev | Ops | Hetzner |
+|--------|----|----|------|-----|-----|---------|
+| **要件定義** | A | R | C | I | I | - |
+| **アーキテクチャ設計** | I | I | A/R | C | C | I |
+| **実装** | I | I | C | R | I | - |
+| **テスト** | I | C | C | R | C | - |
+| **デプロイ** | I | A | C | C | R | I |
+| **監視設定** | I | I | C | C | R | - |
+| **インシデント対応** | I | I | C | C | R | C |
+| **容量計画** | A | C | R | I | C | I |
+| **予算管理** | A/R | C | I | I | I | - |
+
+**凡例**: R=実行責任、A=説明責任、C=協議、I=情報共有
+
+---
+
+### 3.5 コミュニケーション計画
+
+```yaml
+communication_plan:
+  定例会議:
+    daily_standup:
+      参加者: [Dev, Ops]
+      時間: "10:00-10:15 JST"
+      形式: "Slack Huddle"
+      
+    weekly_review:
+      参加者: [PM, Tech, Dev Lead, Ops Lead]
+      時間: "金曜 16:00-17:00 JST"
+      議題: ["進捗確認", "課題解決", "翌週計画"]
+      
+    monthly_steering:
+      参加者: [PO, PM, Tech]
+      時間: "月末最終金曜 15:00-16:00"
+      議題: ["KPI review", "予算確認", "戦略調整"]
+      
+  ツール:
+    chat: "Slack (無料プラン)"
+    ticket: "GitHub Issues"
+    wiki: "GitHub Wiki"
+    monitoring: "Grafana Dashboard (公開)"
+```
+
+---
+
+### 自己検証コメント
+
+**このセクションの抜け漏れ・リスク:**
+
+1. **人的リソースの過小評価**:
+   - 2-3名の開発チームでは、24×7運用は現実的に困難
+   - オンコール負担が特定個人に集中するリスク
+   - → 対策: 初期は平日日中のみのサポートに限定
+
+2. **スキルギャップ**:
+   - WebRTCの深い知識を持つエンジニアの確保が困難
+   - Go言語での低レベル最適化スキルが必要
+   - → 対策: Pion WebRTCコミュニティの活用、段階的学習計画
+
+3. **外部依存リスク**:
+   - Hetznerの障害時に代替手段なし
+   - 欧州のデータ保護規制（GDPR）への対応負担
+   - → 対策: 障害時の免責事項明記、最小限の個人情報収集
+
+4. **コミュニケーションオーバーヘッド**:
+   - 小規模チームに対して会議が多すぎる可能性
+   - → 対策: 非同期コミュニケーション重視、必要最小限の会議
+
+次のセクションでは、これらの制約を踏まえた詳細機能要件を定義します。
