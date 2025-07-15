@@ -96,6 +96,19 @@ The application follows a clean separation of concerns with shared TypeScript sc
 
 ## Recent Changes
 
+### Video Grid UI Enhancement (January 15, 2025)
+- Fixed duplicate participant display issue by filtering out self from participants list
+- Changed local video display name from "You" to "あなた" for Japanese localization
+- Implemented adaptive grid layout based on participant count
+- Improved overall video call user experience with cleaner design
+
+### WebRTC Bidirectional Communication Fix (January 15, 2025)
+- Resolved critical issue where only one direction of video/audio was working
+- Fixed track addition logic for peer connections during offer handling
+- Implemented proper self-connection prevention
+- Added comprehensive participant synchronization
+- Both host and invited participants now see each other's video/audio correctly
+
 ### Database Integration (January 15, 2025)
 - Added PostgreSQL database support with Neon serverless driver
 - Implemented DatabaseStorage class replacing in-memory storage

@@ -118,7 +118,7 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
 
         {isLocal && (
           <div className="absolute top-2 left-2 bg-primary px-2 py-1 rounded-md text-xs text-white">
-            You
+            あなた
           </div>
         )}
       </div>
@@ -136,38 +136,54 @@ export default function VideoGrid({ localStream, remoteStreams, participants, is
     participantIds: participants.map(p => p.connectionId)
   });
   
-  // Find the main speaker (first participant who is not muted and has video)
-  const mainSpeaker = participants.find(p => !p.isMuted && p.isVideoEnabled) || participants[0];
-  const otherParticipants = participants.filter(p => p.connectionId !== mainSpeaker?.connectionId);
+
+
+  // Filter out self from participants list
+  const remoteParticipants = participants.filter(p => p.connectionId !== displayName);
+  const totalParticipants = remoteParticipants.length + 1; // +1 for local user
+
+  // Determine grid layout based on participant count
+  const getGridClass = () => {
+    switch (totalParticipants) {
+      case 1:
+        return "grid grid-cols-1 place-items-center";
+      case 2:
+        return "grid grid-cols-1 md:grid-cols-2 gap-4";
+      case 3:
+      case 4:
+        return "grid grid-cols-1 md:grid-cols-2 gap-4";
+      default:
+        return "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4";
+    }
+  };
 
   return (
-    <div className="h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {/* Main speaker video */}
-      {mainSpeaker && (
+    <div className="flex-1 p-6">
+      <div className={`${getGridClass()} h-full`}>
+        {/* Local video stream */}
         <VideoStream
-          stream={remoteStreams.get(mainSpeaker.connectionId || "")}
-          participant={mainSpeaker}
-          isMainSpeaker={true}
-          displayName={displayName}
+          stream={localStream}
+          isLocal={true}
+          isVideoEnabled={isVideoEnabled}
+          displayName="あなた"
         />
-      )}
 
-      {/* Other participant videos */}
-      {otherParticipants.map((participant) => (
-        <VideoStream
-          key={`participant-${participant.connectionId}-${participant.id}`}
-          stream={remoteStreams.get(participant.connectionId || "")}
-          participant={participant}
-          displayName={displayName}
-        />
-      ))}
-
-      {/* Local video (self) */}
-      <VideoStream
-        stream={localStream}
-        isLocal={true}
-        displayName={displayName}
-      />
+        {/* Remote video streams */}
+        {remoteParticipants.map((participant) => {
+          const stream = remoteStreams.get(participant.connectionId);
+          return (
+            <VideoStream
+              key={participant.connectionId}
+              stream={stream}
+              participant={participant}
+              isLocal={false}
+              isMainSpeaker={false}
+              isVideoEnabled={participant.isVideoEnabled}
+              displayName={participant.displayName}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
