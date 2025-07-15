@@ -11,10 +11,11 @@ interface VideoGridProps {
 }
 
 interface VideoStreamProps {
-  stream?: MediaStream;
+  stream?: MediaStream | null;
   participant?: Participant;
   isLocal?: boolean;
   isMainSpeaker?: boolean;
+  isVideoEnabled?: boolean;
   displayName: string;
 }
 
@@ -62,6 +63,8 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
             muted={isLocal}
             controls={false}
             className="w-full h-full object-cover bg-gray-900"
+            data-local={isLocal ? "true" : "false"}
+            data-remote={!isLocal ? "true" : "false"}
             onLoadedMetadata={() => {
               console.log(`Video metadata loaded for ${name}`);
             }}

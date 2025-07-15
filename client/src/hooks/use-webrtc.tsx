@@ -8,10 +8,15 @@ export interface UseWebRTCReturn {
   isAudioEnabled: boolean;
   isVideoEnabled: boolean;
   isScreenSharing: boolean;
+  isRecording: boolean;
+  recordedChunks: Blob[];
   connectionStatus: "connecting" | "connected" | "disconnected" | "failed";
   toggleAudio: () => void;
   toggleVideo: () => void;
   toggleScreenShare: () => void;
+  startRecording: () => void;
+  stopRecording: () => void;
+  downloadRecording: () => void;
   leaveCall: () => void;
 }
 
@@ -22,11 +27,15 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected" | "failed">("connecting");
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerConnections = useRef(new Map<string, RTCPeerConnection>());
   const socketRef = useRef<WebSocket | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -713,50 +722,250 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   const toggleScreenShare = useCallback(async () => {
     try {
       if (!isScreenSharing) {
+        // Start screen sharing
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true,
+          video: {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 30 }
+          },
           audio: true
         });
+
+        screenStreamRef.current = screenStream;
         
-        // Replace video track in peer connections
+        // Handle screen share ending (user clicks stop sharing button in browser)
+        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+          setIsScreenSharing(false);
+          // Switch back to camera if it was enabled
+          if (isVideoEnabled) {
+            // Re-initialize camera stream
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+              .then(stream => {
+                const videoTrack = stream.getVideoTracks()[0];
+                
+                // Replace video track in all peer connections
+                peerConnections.current.forEach((pc: RTCPeerConnection) => {
+                  const sender = pc.getSenders().find((s: RTCRtpSender) => 
+                    s.track && s.track.kind === 'video'
+                  );
+                  if (sender && videoTrack) {
+                    sender.replaceTrack(videoTrack);
+                  }
+                });
+
+                // Update local stream
+                if (localStreamRef.current) {
+                  const audioTrack = localStreamRef.current.getAudioTracks()[0];
+                  const newStream = new MediaStream();
+                  if (audioTrack) newStream.addTrack(audioTrack);
+                  newStream.addTrack(videoTrack);
+                  
+                  localStreamRef.current = newStream;
+                  setLocalStream(newStream);
+                }
+              })
+              .catch(error => console.error('Failed to restart camera:', error));
+          }
+        });
+
+        // Replace video track in all peer connections
         const videoTrack = screenStream.getVideoTracks()[0];
-        peerConnections.current.forEach(pc => {
-          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) {
+        peerConnections.current.forEach((pc: RTCPeerConnection) => {
+          const sender = pc.getSenders().find((s: RTCRtpSender) => 
+            s.track && s.track.kind === 'video'
+          );
+          if (sender && videoTrack) {
             sender.replaceTrack(videoTrack);
           }
         });
-        
+
+        // Update local stream with screen share
+        if (localStreamRef.current) {
+          const audioTrack = localStreamRef.current.getAudioTracks()[0];
+          const newStream = new MediaStream();
+          if (audioTrack) newStream.addTrack(audioTrack);
+          newStream.addTrack(videoTrack);
+          
+          localStreamRef.current = newStream;
+          setLocalStream(newStream);
+        }
+
         setIsScreenSharing(true);
-        
-        // Handle screen share end
-        screenStream.getVideoTracks()[0].onended = () => {
-          setIsScreenSharing(false);
-          // Switch back to camera
-          if (isVideoEnabled) {
-            toggleVideo();
-          }
-        };
       } else {
         // Stop screen sharing
+        if (screenStreamRef.current) {
+          screenStreamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+          screenStreamRef.current = null;
+        }
+        
         setIsScreenSharing(false);
+        
+        // Switch back to camera
         if (isVideoEnabled) {
-          toggleVideo();
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false // Don't request audio again
+          });
+          
+          const videoTrack = stream.getVideoTracks()[0];
+          
+          // Replace video track in all peer connections
+          peerConnections.current.forEach((pc: RTCPeerConnection) => {
+            const sender = pc.getSenders().find((s: RTCRtpSender) => 
+              s.track && s.track.kind === 'video'
+            );
+            if (sender && videoTrack) {
+              sender.replaceTrack(videoTrack);
+            }
+          });
+
+          // Update local stream
+          if (localStreamRef.current) {
+            const audioTrack = localStreamRef.current.getAudioTracks()[0];
+            const newStream = new MediaStream();
+            if (audioTrack) newStream.addTrack(audioTrack);
+            newStream.addTrack(videoTrack);
+            
+            localStreamRef.current = newStream;
+            setLocalStream(newStream);
+          }
         }
       }
     } catch (error) {
       console.error("Failed to toggle screen share:", error);
     }
-  }, [isScreenSharing, isVideoEnabled, toggleVideo]);
+  }, [isScreenSharing, isVideoEnabled]);
+
+  // Recording functions
+  const startRecording = useCallback(() => {
+    try {
+      if (!localStreamRef.current) {
+        console.error("No local stream available for recording");
+        return;
+      }
+
+      // Create a composite stream with local and remote streams
+      const canvas = document.createElement('canvas');
+      canvas.width = 1920;
+      canvas.height = 1080;
+      const ctx = canvas.getContext('2d')!;
+      
+      const compositeStream = canvas.captureStream(30);
+      
+      // Add audio from local stream
+      const audioTracks = localStreamRef.current.getAudioTracks();
+      if (audioTracks.length > 0) {
+        compositeStream.addTrack(audioTracks[0]);
+      }
+
+      // Create MediaRecorder
+      const mimeType = MediaRecorder.isTypeSupported('video/webm; codecs=vp9') 
+        ? 'video/webm; codecs=vp9'
+        : 'video/webm';
+        
+      mediaRecorderRef.current = new MediaRecorder(compositeStream, {
+        mimeType,
+        videoBitsPerSecond: 2500000 // 2.5 Mbps
+      });
+
+      const chunks: Blob[] = [];
+
+      mediaRecorderRef.current.ondataavailable = (event: BlobEvent) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        setRecordedChunks(chunks);
+      };
+
+      // Render composite video
+      const renderFrame = () => {
+        if (!isRecording) return;
+        
+        // Clear canvas
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw local video
+        const localVideo = document.querySelector('video[data-local="true"]') as HTMLVideoElement;
+        if (localVideo && localVideo.videoWidth > 0) {
+          const aspectRatio = localVideo.videoWidth / localVideo.videoHeight;
+          const width = Math.min(canvas.width / 2, canvas.height * aspectRatio);
+          const height = width / aspectRatio;
+          ctx.drawImage(localVideo, 10, 10, width, height);
+        }
+        
+        // Draw remote videos
+        const remoteVideos = document.querySelectorAll('video[data-remote="true"]') as NodeListOf<HTMLVideoElement>;
+        let x = canvas.width / 2 + 10;
+        let y = 10;
+        
+        remoteVideos.forEach((video) => {
+          if (video.videoWidth > 0) {
+            const aspectRatio = video.videoWidth / video.videoHeight;
+            const width = Math.min(canvas.width / 2 - 20, canvas.height / 2 * aspectRatio);
+            const height = width / aspectRatio;
+            
+            ctx.drawImage(video, x, y, width, height);
+            y += height + 10;
+            
+            if (y + height > canvas.height) {
+              x += width + 10;
+              y = 10;
+            }
+          }
+        });
+        
+        requestAnimationFrame(renderFrame);
+      };
+
+      mediaRecorderRef.current.start(1000); // Collect data every second
+      setIsRecording(true);
+      renderFrame();
+      
+      console.log('Recording started');
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+    }
+  }, [isRecording]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      console.log('Recording stopped');
+    }
+  }, [isRecording]);
+
+  const downloadRecording = useCallback(() => {
+    if (recordedChunks.length === 0) {
+      console.error('No recorded chunks available');
+      return;
+    }
+
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `meetsonar-recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [recordedChunks]);
 
   const leaveCall = useCallback(() => {
     // Stop local stream
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
+      localStreamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop());
     }
     
     // Close all peer connections
-    peerConnections.current.forEach(pc => pc.close());
+    peerConnections.current.forEach((pc: RTCPeerConnection) => pc.close());
     peerConnections.current.clear();
     
     // Close WebSocket
@@ -780,10 +989,15 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     isAudioEnabled,
     isVideoEnabled,
     isScreenSharing,
+    isRecording,
+    recordedChunks,
     connectionStatus,
     toggleAudio,
     toggleVideo,
     toggleScreenShare,
+    startRecording,
+    stopRecording,
+    downloadRecording,
     leaveCall,
   };
 }

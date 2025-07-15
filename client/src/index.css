@@ -102,6 +102,15 @@
   .control-button.neutral {
     @apply bg-slate-600 hover:bg-slate-500;
   }
+  
+  .control-button.recording {
+    @apply bg-red-600 hover:bg-red-500 text-white;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .control-button.recording .fill-current {
+    fill: currentColor;
+  }
 }
 
 /* Ensure video elements are properly displayed */
