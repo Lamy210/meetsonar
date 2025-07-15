@@ -1,0 +1,140 @@
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:435:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:435:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:435:13
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:435:13
+Added ICE candidate successfully 16 use-webrtc.tsx:452:17
+Failed to set remote description (answer): DOMException: Cannot set remote answer in state stable <anonymous code>:1:145535
+Added ICE candidate successfully 4 use-webrtc.tsx:452:17
+ICE connection state for あ: connected use-webrtc.tsx:266:15
+ICE connected for あ. Checking receivers... use-webrtc.tsx:268:17
+Receivers for あ: 2 
+Array [ "audio", "video" ]
+use-webrtc.tsx:270:17
+Connection state changed for あ: failed use-webrtc.tsx:253:15
+Connection failed for あ <anonymous code>:1:145535
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+Sending ICE candidate 2 use-webrtc.tsx:240:17
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:435:13
+Added ICE candidate successfully use-webrtc.tsx:452:17
+Received signaling message: 
+Object { type: "ice-candidate", participantId: "あ", payload: {…} }
+use-webrtc.tsx:119:13
+Handling ICE candidate from: あ use-webrtc.tsx:435:13
+Received end-of-candidates marker use-webrtc.tsx:444:15
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+Video enabled use-webrtc.tsx:526:17
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+Setting video source for You: 
+Object { streamId: "{a4b4f63d-1ba9-42c0-ade8-b63f02aa3d77}", trackCount: 2, audioTracks: 1, videoTracks: 1, isLocal: true }
+video-grid.tsx:29:15
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+ソースマップエラー: Error: JSON.parse: unexpected character at line 1 column 1 of the JSON data
+Stack in the worker:parseSourceMapInput@resource://devtools/client/shared/vendor/source-map/lib/util.js:163:15
+_factory@resource://devtools/client/shared/vendor/source-map/lib/source-map-consumer.js:1066:22
+SourceMapConsumer@resource://devtools/client/shared/vendor/source-map/lib/source-map-consumer.js:26:12
+_fetch@resource://devtools/client/shared/source-map-loader/utils/fetchSourceMap.js:83:19
+
+リソース URL: https://ab060c85-abff-48fa-aecb-b6a801f9d05d-00-2n3ctlvf44t2r.worf.replit.dev/room/%3Canonymous%20code%3E
+ソースマップ URL: installHook.js.map
+
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+VideoGrid render: 
+Object { localStreamTracks: 2, remoteStreamsCount: 1, remoteStreamKeys: (1) […], participantsCount: 2, participantIds: (2) […] }
+video-grid.tsx:116:11
+
+​
+

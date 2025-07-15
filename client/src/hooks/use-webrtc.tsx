@@ -276,6 +276,11 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       console.log(`Negotiation needed for ${participantId}`);
     };
 
+    // Debug signaling state changes
+    peerConnection.onsignalingstatechange = () => {
+      console.log(`Signaling state changed for ${participantId}:`, peerConnection.signalingState);
+    };
+
     // Create and send offer
     try {
       // Wait for local stream to be ready
@@ -369,6 +374,19 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
       await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
       console.log("Set remote description successfully");
+      
+      // Process any pending ICE candidates  
+      if (peerConnection.pendingCandidates) {
+        console.log(`Processing ${peerConnection.pendingCandidates.length} pending ICE candidates`);
+        for (const candidate of peerConnection.pendingCandidates) {
+          try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (err) {
+            console.error("Failed to add pending ICE candidate:", err);
+          }
+        }
+        delete peerConnection.pendingCandidates;
+      }
 
       // Add local stream tracks after setting remote description
       if (localStreamRef.current) {
@@ -424,10 +442,33 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     }
 
     try {
-      await peerConnection.setRemoteDescription(answer);
+      // Check if we're in the correct state to receive an answer
+      if (peerConnection.signalingState !== 'have-local-offer') {
+        console.warn(`Cannot set remote answer in state: ${peerConnection.signalingState}`);
+        return;
+      }
+
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
       console.log("Set remote description (answer) successfully for:", participantId);
+      
+      // Process any pending ICE candidates
+      if (peerConnection.pendingCandidates) {
+        console.log(`Processing ${peerConnection.pendingCandidates.length} pending ICE candidates`);
+        for (const candidate of peerConnection.pendingCandidates) {
+          try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (err) {
+            console.error("Failed to add pending ICE candidate:", err);
+          }
+        }
+        delete peerConnection.pendingCandidates;
+      }
     } catch (error) {
-      console.error("Failed to set remote description (answer):", error);
+      console.error("Failed to set remote description (answer):", error, {
+        signalingState: peerConnection.signalingState,
+        answerType: answer.type,
+        answerSdp: answer.sdp ? answer.sdp.substring(0, 100) + "..." : "null"
+      });
     }
   };
 
@@ -451,7 +492,13 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         console.log("Added ICE candidate successfully");
       } else {
-        console.warn("Cannot add ICE candidate: no remote description set yet");
+        console.warn("Cannot add ICE candidate: no remote description set yet. Signaling state:", peerConnection.signalingState);
+        // Queue the candidate to be added later
+        if (!peerConnection.pendingCandidates) {
+          peerConnection.pendingCandidates = [];
+        }
+        peerConnection.pendingCandidates.push(candidate);
+        console.log("Queued ICE candidate for later");
       }
     } catch (error) {
       console.error("Failed to add ICE candidate:", error);
