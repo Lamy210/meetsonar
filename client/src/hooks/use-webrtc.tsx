@@ -71,15 +71,23 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
-          video: false // Start with camera off
+          video: true // Start with both audio and video
         });
         
         localStreamRef.current = stream;
         setLocalStream(stream);
         
-        // Set initial audio state
+        // Set initial states
         stream.getAudioTracks().forEach(track => {
           track.enabled = isAudioEnabled;
+        });
+        stream.getVideoTracks().forEach(track => {
+          track.enabled = isVideoEnabled;
+        });
+        
+        console.log("Local stream initialized:", {
+          audioTracks: stream.getAudioTracks().length,
+          videoTracks: stream.getVideoTracks().length
         });
       } catch (error) {
         console.error("Failed to get user media:", error);
@@ -231,7 +239,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   };
 
   const handleOffer = async (participantId: string, offer: RTCSessionDescriptionInit) => {
-    console.log("Handling offer from:", participantId);
+    console.log("Handling offer from:", participantId, "offer type:", offer.type);
     
     let peerConnection = peerConnections.current.get(participantId);
     if (!peerConnection) {
@@ -245,19 +253,14 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
       peerConnections.current.set(participantId, peerConnection);
 
-      // Add local stream to peer connection
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => {
-          console.log("Adding track to peer connection:", track.kind);
-          peerConnection!.addTrack(track, localStreamRef.current!);
-        });
-      }
-
       // Handle remote stream
       peerConnection.ontrack = (event) => {
-        console.log("Received remote track:", event.track.kind);
+        console.log("Received remote track:", event.track.kind, "from:", participantId);
         const [remoteStream] = event.streams;
-        setRemoteStreams(prev => new Map(prev.set(participantId, remoteStream)));
+        if (remoteStream) {
+          setRemoteStreams(prev => new Map(prev.set(participantId, remoteStream)));
+          console.log("Added remote stream for participant:", participantId);
+        }
       };
 
       // Handle ICE candidates
@@ -291,7 +294,25 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     }
 
     try {
-      await peerConnection.setRemoteDescription(offer);
+      // Ensure we have a valid offer with SDP content
+      if (!offer.sdp || offer.sdp.trim().length === 0) {
+        console.error("Received invalid offer - empty SDP");
+        return;
+      }
+
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      console.log("Set remote description successfully");
+
+      // Add local stream tracks after setting remote description
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => {
+          console.log("Adding track to peer connection:", track.kind, "enabled:", track.enabled);
+          peerConnection!.addTrack(track, localStreamRef.current!);
+        });
+      } else {
+        console.warn("No local stream available when handling offer");
+      }
+
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
 
@@ -306,7 +327,10 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         }));
       }
     } catch (error) {
-      console.error("Failed to handle offer:", error);
+      console.error("Failed to handle offer:", error, {
+        offerType: offer.type,
+        offerSdp: offer.sdp ? offer.sdp.substring(0, 100) + "..." : "null"
+      });
     }
   };
 

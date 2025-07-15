@@ -74,6 +74,13 @@
 @layer components {
   .video-container {
     @apply relative w-full h-full bg-slate-800 rounded-xl overflow-hidden;
+    min-height: 200px;
+  }
+  
+  .video-container video {
+    @apply w-full h-full object-cover;
+    background: #1e293b;
+    display: block !important;
   }
   
   .video-overlay {
@@ -95,6 +102,16 @@
   .control-button.neutral {
     @apply bg-slate-600 hover:bg-slate-500;
   }
+}
+
+/* Ensure video elements are properly displayed */
+video {
+  display: block !important;
+  background: #1e293b !important;
+}
+
+video::-webkit-media-controls {
+  display: none !important;
 }
 
 /* Custom scrollbar for webkit browsers */

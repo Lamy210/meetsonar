@@ -162,6 +162,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     console.log(`Forwarding ${message.type} from ${participantId} to ${targetParticipant || 'all'}`);
 
+    // Validate signaling message has required fields
+    if (!payload) {
+      console.error("Signaling message missing payload:", message.type);
+      return;
+    }
+
+    // For offers and answers, ensure SDP content exists
+    if ((message.type === 'offer' || message.type === 'answer') && 
+        (!payload.sdp || payload.sdp.trim().length === 0)) {
+      console.error(`Invalid ${message.type} - missing or empty SDP from ${participantId}`);
+      return;
+    }
+
     // Forward signaling message to target participant or all participants
     wss.clients.forEach((client: WebSocketWithId) => {
       if (client.readyState === WebSocket.OPEN && 
@@ -173,6 +186,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return;
         }
         
+        console.log(`Sending ${message.type} to ${client.participantId}`);
         client.send(JSON.stringify({
           type: message.type,
           participantId: participantId,

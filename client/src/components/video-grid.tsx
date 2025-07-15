@@ -98,14 +98,14 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
 export default function VideoGrid({ localStream, remoteStreams, participants, isVideoEnabled, displayName }: VideoGridProps) {
   // Find the main speaker (first participant who is not muted and has video)
   const mainSpeaker = participants.find(p => !p.isMuted && p.isVideoEnabled) || participants[0];
-  const otherParticipants = participants.filter(p => p.id !== mainSpeaker?.id);
+  const otherParticipants = participants.filter(p => p.connectionId !== mainSpeaker?.connectionId);
 
   return (
     <div className="h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* Main speaker video */}
       {mainSpeaker && (
         <VideoStream
-          stream={remoteStreams.get(mainSpeaker.id?.toString() || "")}
+          stream={remoteStreams.get(mainSpeaker.connectionId || "")}
           participant={mainSpeaker}
           isMainSpeaker={true}
           displayName={displayName}
@@ -115,8 +115,8 @@ export default function VideoGrid({ localStream, remoteStreams, participants, is
       {/* Other participant videos */}
       {otherParticipants.map((participant) => (
         <VideoStream
-          key={participant.id}
-          stream={remoteStreams.get(participant.id?.toString() || "")}
+          key={participant.connectionId}
+          stream={remoteStreams.get(participant.connectionId || "")}
           participant={participant}
           displayName={displayName}
         />
