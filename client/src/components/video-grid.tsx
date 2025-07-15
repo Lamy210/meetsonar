@@ -83,8 +83,7 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
           </div>
         )}
 
-        {/* Video overlay */}
-        <div className="video-overlay" />
+        
 
         {/* Participant info */}
         <div className="absolute bottom-4 left-4 flex items-center space-x-3">
