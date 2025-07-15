@@ -135,6 +135,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       type: 'participant-joined',
       payload: participant
     }, participantId);
+    
+    console.log(`Participant ${participantId} joined room ${roomId}`);
   }
 
   async function handleLeaveRoom(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
@@ -146,21 +148,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Notify other participants
     broadcastToRoom(wss, roomId, {
       type: 'participant-left',
-      payload: { id: participantId }
+      payload: { connectionId: participantId }
     }, participantId);
+    
+    console.log(`Participant ${participantId} left room ${roomId}`);
 
     ws.participantId = undefined;
     ws.roomId = undefined;
   }
 
   async function handleSignalingMessage(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
-    const { roomId, participantId, payload } = message;
+    const { roomId, participantId, targetParticipant, payload } = message;
 
-    // Forward signaling message to target participant
+    console.log(`Forwarding ${message.type} from ${participantId} to ${targetParticipant || 'all'}`);
+
+    // Forward signaling message to target participant or all participants
     wss.clients.forEach((client: WebSocketWithId) => {
       if (client.readyState === WebSocket.OPEN && 
           client.roomId === roomId && 
           client.participantId !== participantId) {
+        
+        // If targetParticipant is specified, only send to that participant
+        if (targetParticipant && client.participantId !== targetParticipant) {
+          return;
+        }
+        
         client.send(JSON.stringify({
           type: message.type,
           participantId: participantId,

@@ -96,19 +96,28 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   }, []);
 
   const handleSignalingMessage = async (message: any) => {
+    console.log("Received signaling message:", message);
+    
     switch (message.type) {
       case "participant-joined":
         setParticipants(prev => [...prev, message.payload]);
-        await createPeerConnection(message.payload.id);
+        // Create peer connection for the new participant
+        await createPeerConnection(message.payload.connectionId);
         break;
       
       case "participant-left":
-        setParticipants(prev => prev.filter(p => p.id !== message.payload.id));
-        removePeerConnection(message.payload.id);
+        setParticipants(prev => prev.filter(p => p.connectionId !== message.payload.connectionId));
+        removePeerConnection(message.payload.connectionId);
         break;
       
       case "participants-list":
         setParticipants(message.payload);
+        // Create peer connections for existing participants
+        for (const participant of message.payload) {
+          if (participant.connectionId !== displayName) {
+            await createPeerConnection(participant.connectionId);
+          }
+        }
         break;
       
       case "offer":
@@ -122,13 +131,28 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       case "ice-candidate":
         await handleIceCandidate(message.participantId, message.payload);
         break;
+        
+      case "participant-updated":
+        setParticipants(prev => prev.map(p => 
+          p.connectionId === message.participantId 
+            ? { ...p, ...message.payload }
+            : p
+        ));
+        break;
     }
   };
 
   const createPeerConnection = async (participantId: string) => {
+    if (peerConnections.current.has(participantId)) {
+      return; // Connection already exists
+    }
+
+    console.log("Creating peer connection for:", participantId);
+    
     const peerConnection = new RTCPeerConnection({
       iceServers: [
-        { urls: "stun:stun.l.google.com:19302" }
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" }
       ]
     });
 
@@ -137,12 +161,14 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     // Add local stream to peer connection
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => {
+        console.log("Adding track to peer connection:", track.kind);
         peerConnection.addTrack(track, localStreamRef.current!);
       });
     }
 
     // Handle remote stream
     peerConnection.ontrack = (event) => {
+      console.log("Received remote track:", event.track.kind);
       const [remoteStream] = event.streams;
       setRemoteStreams(prev => new Map(prev.set(participantId, remoteStream)));
     };
@@ -150,44 +176,112 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     // Handle ICE candidates
     peerConnection.onicecandidate = (event) => {
       if (event.candidate && socketRef.current) {
+        console.log("Sending ICE candidate");
         socketRef.current.send(JSON.stringify({
           type: "ice-candidate",
           roomId,
           participantId: displayName,
+          targetParticipant: participantId,
           payload: event.candidate
         }));
       }
     };
 
+    // Handle connection state changes
+    peerConnection.onconnectionstatechange = () => {
+      console.log("Connection state changed:", peerConnection.connectionState);
+    };
+
     // Create and send offer
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    
-    if (socketRef.current) {
-      socketRef.current.send(JSON.stringify({
-        type: "offer",
-        roomId,
-        participantId: displayName,
-        payload: offer
-      }));
+    try {
+      const offer = await peerConnection.createOffer({
+        offerToReceiveAudio: true,
+        offerToReceiveVideo: true
+      });
+      await peerConnection.setLocalDescription(offer);
+      
+      console.log("Sending offer to:", participantId);
+      if (socketRef.current) {
+        socketRef.current.send(JSON.stringify({
+          type: "offer",
+          roomId,
+          participantId: displayName,
+          targetParticipant: participantId,
+          payload: offer
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to create offer:", error);
     }
   };
 
   const handleOffer = async (participantId: string, offer: RTCSessionDescriptionInit) => {
-    const peerConnection = peerConnections.current.get(participantId);
-    if (!peerConnection) return;
+    console.log("Handling offer from:", participantId);
+    
+    let peerConnection = peerConnections.current.get(participantId);
+    if (!peerConnection) {
+      // Create a new peer connection for incoming offer
+      peerConnection = new RTCPeerConnection({
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" }
+        ]
+      });
 
-    await peerConnection.setRemoteDescription(offer);
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
+      peerConnections.current.set(participantId, peerConnection);
 
-    if (socketRef.current) {
-      socketRef.current.send(JSON.stringify({
-        type: "answer",
-        roomId,
-        participantId: displayName,
-        payload: answer
-      }));
+      // Add local stream to peer connection
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => {
+          console.log("Adding track to peer connection:", track.kind);
+          peerConnection!.addTrack(track, localStreamRef.current!);
+        });
+      }
+
+      // Handle remote stream
+      peerConnection.ontrack = (event) => {
+        console.log("Received remote track:", event.track.kind);
+        const [remoteStream] = event.streams;
+        setRemoteStreams(prev => new Map(prev.set(participantId, remoteStream)));
+      };
+
+      // Handle ICE candidates
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate && socketRef.current) {
+          console.log("Sending ICE candidate (answer)");
+          socketRef.current.send(JSON.stringify({
+            type: "ice-candidate",
+            roomId,
+            participantId: displayName,
+            targetParticipant: participantId,
+            payload: event.candidate
+          }));
+        }
+      };
+
+      // Handle connection state changes
+      peerConnection.onconnectionstatechange = () => {
+        console.log("Connection state changed:", peerConnection!.connectionState);
+      };
+    }
+
+    try {
+      await peerConnection.setRemoteDescription(offer);
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+
+      console.log("Sending answer to:", participantId);
+      if (socketRef.current) {
+        socketRef.current.send(JSON.stringify({
+          type: "answer",
+          roomId,
+          participantId: displayName,
+          targetParticipant: participantId,
+          payload: answer
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to handle offer:", error);
     }
   };
 
@@ -199,10 +293,19 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   };
 
   const handleIceCandidate = async (participantId: string, candidate: RTCIceCandidateInit) => {
+    console.log("Handling ICE candidate from:", participantId);
     const peerConnection = peerConnections.current.get(participantId);
-    if (!peerConnection) return;
+    if (!peerConnection) {
+      console.warn("No peer connection found for ICE candidate");
+      return;
+    }
 
-    await peerConnection.addIceCandidate(candidate);
+    try {
+      await peerConnection.addIceCandidate(candidate);
+      console.log("Added ICE candidate successfully");
+    } catch (error) {
+      console.error("Failed to add ICE candidate:", error);
+    }
   };
 
   const removePeerConnection = (participantId: string) => {
@@ -242,19 +345,35 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     try {
       if (!isVideoEnabled) {
         // Turn on video
-        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const videoStream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: 640, height: 480 } 
+        });
         const videoTrack = videoStream.getVideoTracks()[0];
         
         if (localStreamRef.current) {
+          // Remove existing video tracks first
+          const existingVideoTracks = localStreamRef.current.getVideoTracks();
+          existingVideoTracks.forEach(track => {
+            track.stop();
+            localStreamRef.current?.removeTrack(track);
+          });
+          
+          // Add new video track
           localStreamRef.current.addTrack(videoTrack);
           setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
           
-          // Add video track to all peer connections
+          // Replace video track in all peer connections
           peerConnections.current.forEach(pc => {
-            pc.addTrack(videoTrack, localStreamRef.current!);
+            const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+            if (sender) {
+              sender.replaceTrack(videoTrack);
+            } else {
+              pc.addTrack(videoTrack, localStreamRef.current!);
+            }
           });
         }
         setIsVideoEnabled(true);
+        console.log("Video enabled");
       } else {
         // Turn off video
         if (localStreamRef.current) {
@@ -264,8 +383,17 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
             localStreamRef.current?.removeTrack(track);
           });
           setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
+          
+          // Remove video track from all peer connections
+          peerConnections.current.forEach(pc => {
+            const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+            if (sender) {
+              sender.replaceTrack(null);
+            }
+          });
         }
         setIsVideoEnabled(false);
+        console.log("Video disabled");
       }
       
       // Notify other participants

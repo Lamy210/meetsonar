@@ -33,6 +33,10 @@ export class MemStorage implements IStorage {
   async createRoom(room: InsertRoom): Promise<Room> {
     const newRoom: Room = {
       ...room,
+      hostId: room.hostId || null,
+      isActive: room.isActive ?? true,
+      maxParticipants: room.maxParticipants ?? 10,
+      settings: room.settings || null,
       createdAt: new Date(),
     };
     this.rooms.set(room.id, newRoom);
@@ -68,6 +72,11 @@ export class MemStorage implements IStorage {
     const newParticipant: Participant = {
       ...participant,
       id: this.participantIdCounter++,
+      userId: participant.userId || null,
+      isHost: participant.isHost ?? false,
+      isMuted: participant.isMuted ?? false,
+      isVideoEnabled: participant.isVideoEnabled ?? false,
+      connectionId: participant.connectionId || null,
       joinedAt: new Date(),
     };
 
