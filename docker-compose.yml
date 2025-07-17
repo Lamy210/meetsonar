@@ -43,7 +43,8 @@ services:
         condition: service_healthy
     networks:
       - meetsonar-network
-    command: npm run dev
+    # Run Drizzle migrations before starting the dev server
+    command: ["sh", "-c", "npm run db:push && npm run dev"]
     develop:
       watch:
         - action: sync

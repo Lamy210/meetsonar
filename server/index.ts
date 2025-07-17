@@ -1,4 +1,6 @@
-import express, { type Request, Response, NextFunction } from "express";
+// @ts-ignore: Allow default import of express
+import express from "express";
+import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
@@ -6,14 +8,16 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
+  // Override res.json to capture response; use any to avoid TS errors
+  const originalResJson: any = res.json;
+  res.json = function (bodyJson: any, ...args: any[]): any {
     capturedJsonResponse = bodyJson;
+    // Apply original json method with captured body and additional args
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
 

@@ -34,9 +34,9 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
         videoTracks: stream.getVideoTracks().length,
         isLocal: isLocal
       });
-      
+
       videoRef.current.srcObject = stream;
-      
+
       // Ensure video plays
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
@@ -86,7 +86,7 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
           </div>
         )}
 
-        
+
 
         {/* Participant info */}
         <div className="absolute bottom-4 left-4 flex items-center space-x-3">
@@ -137,7 +137,7 @@ export default function VideoGrid({ localStream, remoteStreams, participants, is
     participantsCount: participants.length,
     participantIds: participants.map(p => p.connectionId)
   });
-  
+
 
 
   // Filter out self from participants list
@@ -172,7 +172,8 @@ export default function VideoGrid({ localStream, remoteStreams, participants, is
 
         {/* Remote video streams */}
         {remoteParticipants.map((participant) => {
-          const stream = remoteStreams.get(participant.connectionId);
+          // connectionId is non-null after filtering
+          const stream = remoteStreams.get(participant.connectionId!);
           return (
             <VideoStream
               key={participant.connectionId}
