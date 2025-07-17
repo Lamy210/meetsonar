@@ -37,6 +37,23 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const screenStreamRef = useRef<MediaStream | null>(null);
 
+  // track state refs to avoid stale closures
+  const isVideoEnabledRef = useRef(isVideoEnabled);
+  const isRecordingRef = useRef(isRecording);
+  useEffect(() => { isVideoEnabledRef.current = isVideoEnabled; }, [isVideoEnabled]);
+  useEffect(() => { isRecordingRef.current = isRecording; }, [isRecording]);
+
+  // store RAF id for recording loop
+  const animationFrameIdRef = useRef<number>();
+
+  // cleanup on unmount
+  useEffect(() => {
+    return () => {
+      leaveCall();
+      if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
+    };
+  }, []);
+
   // Initialize WebSocket connection
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -735,49 +752,53 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
         screenStreamRef.current = screenStream;
 
-        // Handle screen share ending (user clicks stop sharing button in browser)
-        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+        // When user stops screen share via browser UI, restore camera stream
+        screenStream.getVideoTracks()[0].addEventListener('ended', async () => {
+          // Stop local screen tracks
+          screenStream.getTracks().forEach(t => t.stop());
+          screenStreamRef.current = null;
           setIsScreenSharing(false);
-          // Switch back to camera if it was enabled
+          // Re-enable video via camera if originally enabled
           if (isVideoEnabled) {
-            // Re-initialize camera stream
-            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-              .then(stream => {
-                const videoTrack = stream.getVideoTracks()[0];
-
-                // Replace video track in all peer connections
-                peerConnections.current.forEach((pc: RTCPeerConnection) => {
-                  const sender = pc.getSenders().find((s: RTCRtpSender) =>
-                    s.track && s.track.kind === 'video'
-                  );
-                  if (sender && videoTrack) {
-                    sender.replaceTrack(videoTrack);
-                  }
-                });
-
-                // Update local stream
-                if (localStreamRef.current) {
-                  const audioTrack = localStreamRef.current.getAudioTracks()[0];
-                  const newStream = new MediaStream();
-                  if (audioTrack) newStream.addTrack(audioTrack);
-                  newStream.addTrack(videoTrack);
-
-                  localStreamRef.current = newStream;
-                  setLocalStream(newStream);
-                }
-              })
-              .catch(error => console.error('Failed to restart camera:', error));
+            try {
+              const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+              // Update local stream
+              if (localStreamRef.current) {
+                const audioTrack = localStreamRef.current.getAudioTracks()[0];
+                const newStream = new MediaStream();
+                if (audioTrack) newStream.addTrack(audioTrack);
+                newStream.addTrack(camStream.getVideoTracks()[0]);
+                localStreamRef.current = newStream;
+                setLocalStream(newStream);
+              }
+              // Replace video track on all peer connections
+              peerConnections.current.forEach(pc => {
+                const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+                if (sender) sender.replaceTrack(camStream.getVideoTracks()[0]);
+              });
+            } catch (err) {
+              console.error('Error restoring camera after screen share end:', err);
+            }
           }
-        });
+        }, { once: true });
 
-        // Replace video track in all peer connections
+        // Replace video track in all peer connections and renegotiate
         const videoTrack = screenStream.getVideoTracks()[0];
-        peerConnections.current.forEach((pc: RTCPeerConnection) => {
-          const sender = pc.getSenders().find((s: RTCRtpSender) =>
-            s.track && s.track.kind === 'video'
-          );
-          if (sender && videoTrack) {
-            sender.replaceTrack(videoTrack);
+        peerConnections.current.forEach(async (pc: RTCPeerConnection) => {
+          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) {
+            await sender.replaceTrack(videoTrack);
+            // Trigger renegotiation
+            if (pc.signalingState === 'stable') {
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              socketRef.current?.send(JSON.stringify({
+                type: 'offer',
+                roomId,
+                participantId: displayName,
+                payload: offer
+              }));
+            }
           }
         });
 
@@ -884,7 +905,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
       // Render composite video
       const renderFrame = () => {
-        if (!isRecording) return;
+        if (!isRecordingRef.current) return;
 
         // Clear canvas
         ctx.fillStyle = '#000000';
@@ -920,7 +941,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
           }
         });
 
-        requestAnimationFrame(renderFrame);
+        animationFrameIdRef.current = requestAnimationFrame(renderFrame);
       };
 
       mediaRecorderRef.current.start(1000); // Collect data every second
@@ -934,10 +955,11 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   }, [isRecording]);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && isRecordingRef.current) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       console.log('Recording stopped');
+      if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
     }
   }, [isRecording]);
 
@@ -982,6 +1004,16 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
     setConnectionStatus("disconnected");
   }, [roomId, displayName]);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      leaveCall();
+      if (animationFrameIdRef.current) {
+        cancelAnimationFrame(animationFrameIdRef.current);
+      }
+    };
+  }, []);
 
   return {
     participants,

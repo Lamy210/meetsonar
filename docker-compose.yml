@@ -3,6 +3,12 @@ version: '3.8'
 services:
   # PostgreSQL Database
   postgres:
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+        reservations:
+          memory: 128m
     image: postgres:15-alpine
     container_name: meetsonar-postgres
     environment:
@@ -35,26 +41,19 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/dist
+      - .:/app  # mount source code
+      - /app/node_modules  # anonymous volume for dependencies
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - meetsonar-network
+    # Resource limits for compose (applied by docker-compose)
+    mem_limit: 512m
+    mem_reservation: 256m
     # Run Drizzle migrations before starting the dev server
     command: ["sh", "-c", "npm run db:push && npm run dev"]
-    develop:
-      watch:
-        - action: sync
-          path: ./server
-          target: /app/server
-        - action: sync
-          path: ./shared
-          target: /app/shared
-        - action: rebuild
-          path: package.json
+    # 'develop' section removed; live reload via volumes above
 
   # Frontend Development Server
   frontend:
@@ -68,20 +67,19 @@ services:
     ports:
       - "5173:5173"
     volumes:
-      - .:/app
-      - /app/node_modules
+      - .:/app  # mount source code; container manages dependencies
     depends_on:
       - backend
     networks:
       - meetsonar-network
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+        reservations:
+          memory: 256m
     command: npm run dev:client
-    develop:
-      watch:
-        - action: sync
-          path: ./client
-          target: /app/client
-        - action: rebuild
-          path: package.json
+    # Removed custom 'develop' sync section
 
 networks:
   meetsonar-network:
