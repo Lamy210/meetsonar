@@ -8,12 +8,12 @@ export default defineConfig({
     react(),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
+      process.env.REPL_ID !== undefined
       ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-        ]
+        await import("@replit/vite-plugin-cartographer").then((m) =>
+          m.cartographer(),
+        ),
+      ]
       : []),
   ],
   resolve: {
@@ -29,9 +29,22 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
+    host: "0.0.0.0",
+    port: 5173,
     fs: {
       strict: true,
       deny: ["**/.*"],
+    },
+    proxy: {
+      "/api": {
+        target: "http://backend:5000",
+        changeOrigin: true,
+      },
+      "/ws": {
+        target: "ws://backend:5000",
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 });

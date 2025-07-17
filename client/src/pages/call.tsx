@@ -28,10 +28,15 @@ export default function Call() {
     isAudioEnabled,
     isVideoEnabled,
     isScreenSharing,
+    isRecording,
+    recordedChunks,
     connectionStatus,
     toggleAudio,
     toggleVideo,
     toggleScreenShare,
+    startRecording,
+    stopRecording,
+    downloadRecording,
     leaveCall,
   } = useWebRTC(roomId!, displayName);
 
@@ -189,9 +194,14 @@ export default function Call() {
         isAudioEnabled={isAudioEnabled}
         isVideoEnabled={isVideoEnabled}
         isScreenSharing={isScreenSharing}
+        isRecording={isRecording}
+        recordedChunks={recordedChunks}
         onToggleAudio={toggleAudio}
         onToggleVideo={toggleVideo}
         onToggleScreenShare={toggleScreenShare}
+        onStartRecording={startRecording}
+        onStopRecording={stopRecording}
+        onDownloadRecording={downloadRecording}
         onOpenSettings={() => setShowSettings(true)}
         onLeaveCall={handleLeaveCall}
         connectionQuality={connectionQuality}

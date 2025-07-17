@@ -23,7 +23,7 @@
   --destructive-foreground: hsl(210, 40%, 98%);
   --ring: hsl(222, 84%, 4.9%);
   --radius: 0.5rem;
-  
+
   /* Custom theme colors */
   --slate-50: hsl(210, 40%, 98%);
   --slate-100: hsl(210, 40%, 96%);
@@ -76,31 +76,40 @@
     @apply relative w-full h-full bg-slate-800 rounded-xl overflow-hidden;
     min-height: 200px;
   }
-  
+
   .video-container video {
     @apply w-full h-full object-cover;
     background: #1e293b;
     display: block !important;
   }
-  
+
   .video-overlay {
     @apply absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent;
   }
-  
+
   .control-button {
     @apply w-12 h-12 rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-105;
   }
-  
+
   .control-button.active {
     @apply bg-green-500 hover:bg-green-600;
   }
-  
+
   .control-button.inactive {
     @apply bg-red-500 hover:bg-red-600;
   }
-  
+
   .control-button.neutral {
     @apply bg-slate-600 hover:bg-slate-500;
+  }
+
+  .control-button.recording {
+    @apply bg-red-600 hover:bg-red-500 text-white;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .control-button.recording .fill-current {
+    fill: currentColor;
   }
 }
 

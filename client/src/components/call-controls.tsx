@@ -1,13 +1,18 @@
-import { Mic, MicOff, Video, VideoOff, Monitor, Settings, Phone, MoreVertical } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Monitor, Settings, Phone, MoreVertical, Circle, Square, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface CallControlsProps {
   isAudioEnabled: boolean;
   isVideoEnabled: boolean;
   isScreenSharing: boolean;
+  isRecording: boolean;
+  recordedChunks: Blob[];
   onToggleAudio: () => void;
   onToggleVideo: () => void;
   onToggleScreenShare: () => void;
+  onStartRecording: () => void;
+  onStopRecording: () => void;
+  onDownloadRecording: () => void;
   onOpenSettings: () => void;
   onLeaveCall: () => void;
   connectionQuality: string;
@@ -17,9 +22,14 @@ export default function CallControls({
   isAudioEnabled,
   isVideoEnabled,
   isScreenSharing,
+  isRecording,
+  recordedChunks,
   onToggleAudio,
   onToggleVideo,
   onToggleScreenShare,
+  onStartRecording,
+  onStopRecording,
+  onDownloadRecording,
   onOpenSettings,
   onLeaveCall,
   connectionQuality,
@@ -71,6 +81,39 @@ export default function CallControls({
           >
             <Monitor className="w-5 h-5" />
           </Button>
+
+          {/* Recording Controls */}
+          {!isRecording ? (
+            <Button
+              onClick={onStartRecording}
+              className="control-button neutral"
+              size="icon"
+              title="録画開始"
+            >
+              <Circle className="w-5 h-5" />
+            </Button>
+          ) : (
+            <Button
+              onClick={onStopRecording}
+              className="control-button recording"
+              size="icon"
+              title="録画停止"
+            >
+              <Square className="w-5 h-5 fill-current" />
+            </Button>
+          )}
+
+          {/* Download Recording */}
+          {recordedChunks.length > 0 && (
+            <Button
+              onClick={onDownloadRecording}
+              className="control-button neutral"
+              size="icon"
+              title="録画をダウンロード"
+            >
+              <Download className="w-5 h-5" />
+            </Button>
+          )}
 
           {/* Settings */}
           <Button

@@ -11,10 +11,11 @@ interface VideoGridProps {
 }
 
 interface VideoStreamProps {
-  stream?: MediaStream;
+  stream?: MediaStream | null;
   participant?: Participant;
   isLocal?: boolean;
   isMainSpeaker?: boolean;
+  isVideoEnabled?: boolean;
   displayName: string;
 }
 
@@ -33,9 +34,9 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
         videoTracks: stream.getVideoTracks().length,
         isLocal: isLocal
       });
-      
+
       videoRef.current.srcObject = stream;
-      
+
       // Ensure video plays
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) {
@@ -62,6 +63,8 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
             muted={isLocal}
             controls={false}
             className="w-full h-full object-cover bg-gray-900"
+            data-local={isLocal ? "true" : "false"}
+            data-remote={!isLocal ? "true" : "false"}
             onLoadedMetadata={() => {
               console.log(`Video metadata loaded for ${name}`);
             }}
@@ -83,7 +86,7 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
           </div>
         )}
 
-        
+
 
         {/* Participant info */}
         <div className="absolute bottom-4 left-4 flex items-center space-x-3">
@@ -134,7 +137,7 @@ export default function VideoGrid({ localStream, remoteStreams, participants, is
     participantsCount: participants.length,
     participantIds: participants.map(p => p.connectionId)
   });
-  
+
 
 
   // Filter out self from participants list
@@ -169,7 +172,8 @@ export default function VideoGrid({ localStream, remoteStreams, participants, is
 
         {/* Remote video streams */}
         {remoteParticipants.map((participant) => {
-          const stream = remoteStreams.get(participant.connectionId);
+          // connectionId is non-null after filtering
+          const stream = remoteStreams.get(participant.connectionId!);
           return (
             <VideoStream
               key={participant.connectionId}

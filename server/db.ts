@@ -1,9 +1,8 @@
-import { Pool, neonConfig } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from "ws";
+// Use default import for pg in ES modules
+import pg from 'pg';
+const { Pool } = pg;
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
-
-neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
