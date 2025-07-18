@@ -93,7 +93,7 @@ export class MemStorage implements IStorage {
     };
 
     const roomParticipants = this.participants.get(participant.roomId) || [];
-    
+
     // Set as host if first participant
     if (roomParticipants.length === 0) {
       newParticipant.isHost = true;
@@ -101,30 +101,30 @@ export class MemStorage implements IStorage {
 
     roomParticipants.push(newParticipant);
     this.participants.set(participant.roomId, roomParticipants);
-    
+
     return newParticipant;
   }
 
   async updateParticipant(roomId: string, participantId: string, updates: Partial<Participant>): Promise<Participant | undefined> {
     const roomParticipants = this.participants.get(roomId) || [];
     const participantIndex = roomParticipants.findIndex(p => p.connectionId === participantId);
-    
+
     if (participantIndex === -1) return undefined;
 
     const updatedParticipant = { ...roomParticipants[participantIndex], ...updates };
     roomParticipants[participantIndex] = updatedParticipant;
     this.participants.set(roomId, roomParticipants);
-    
+
     return updatedParticipant;
   }
 
   async removeParticipant(roomId: string, participantId: string): Promise<boolean> {
     const roomParticipants = this.participants.get(roomId) || [];
     const initialLength = roomParticipants.length;
-    
+
     const updatedParticipants = roomParticipants.filter(p => p.connectionId !== participantId);
     this.participants.set(roomId, updatedParticipants);
-    
+
     return updatedParticipants.length < initialLength;
   }
 
@@ -183,7 +183,7 @@ export class DatabaseStorage implements IStorage {
     // Delete participants and messages first (foreign key constraint)
     await db.delete(participants).where(eq(participants.roomId, id));
     await db.delete(chatMessages).where(eq(chatMessages.roomId, id));
-    
+
     const result = await db.delete(rooms).where(eq(rooms.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
   }
@@ -242,7 +242,7 @@ export class DatabaseStorage implements IStorage {
       .where(eq(chatMessages.roomId, roomId))
       .orderBy(desc(chatMessages.createdAt))
       .limit(limit);
-    
+
     // 古い順に返す（フロントエンドで表示順序を正しくするため）
     return messages.reverse();
   }

@@ -53,39 +53,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const message = JSON.parse(data.toString());
         const validatedMessage = signalingMessageSchema.parse(message);
-        
+
         switch (validatedMessage.type) {
           case 'join-room':
             await handleJoinRoom(ws, validatedMessage, wss);
             break;
-          
+
           case 'leave-room':
             await handleLeaveRoom(ws, validatedMessage, wss);
             break;
-          
+
           case 'offer':
           case 'answer':
           case 'ice-candidate':
             await handleSignalingMessage(ws, validatedMessage, wss);
             break;
-          
+
           case 'participant-update':
             await handleParticipantUpdate(ws, validatedMessage, wss);
             break;
-            
+
           case 'chat-message':
             await handleChatMessage(ws, validatedMessage, wss);
             break;
-            
+
           case 'chat-history':
             await handleChatHistory(ws, validatedMessage);
             break;
         }
       } catch (error) {
         console.error('WebSocket message error:', error);
-        ws.send(JSON.stringify({ 
-          type: 'error', 
-          message: 'Invalid message format' 
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Invalid message format'
         }));
       }
     });
@@ -104,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   async function handleJoinRoom(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
     const { roomId, participantId, payload } = message;
-    
+
     ws.participantId = participantId;
     ws.roomId = roomId;
 
@@ -143,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       type: 'participant-joined',
       payload: participant
     }, participantId);
-    
+
     console.log(`Participant ${participantId} joined room ${roomId}`);
   }
 
@@ -158,7 +158,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       type: 'participant-left',
       payload: { connectionId: participantId }
     }, participantId);
-    
+
     console.log(`Participant ${participantId} left room ${roomId}`);
 
     ws.participantId = undefined;
@@ -177,23 +177,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     // For offers and answers, ensure SDP content exists
-    if ((message.type === 'offer' || message.type === 'answer') && 
-        (!payload.sdp || payload.sdp.trim().length === 0)) {
+    if ((message.type === 'offer' || message.type === 'answer') &&
+      (!payload.sdp || payload.sdp.trim().length === 0)) {
       console.error(`Invalid ${message.type} - missing or empty SDP from ${participantId}`);
       return;
     }
 
     // Forward signaling message to target participant or all participants
     wss.clients.forEach((client: WebSocketWithId) => {
-      if (client.readyState === WebSocket.OPEN && 
-          client.roomId === roomId && 
-          client.participantId !== participantId) {
-        
+      if (client.readyState === WebSocket.OPEN &&
+        client.roomId === roomId &&
+        client.participantId !== participantId) {
+
         // If targetParticipant is specified, only send to that participant
         if (targetParticipant && client.participantId !== targetParticipant) {
           return;
         }
-        
+
         console.log(`Sending ${message.type} to ${client.participantId}`);
         client.send(JSON.stringify({
           type: message.type,
@@ -221,9 +221,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function handleChatMessage(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
     console.log("=== handleChatMessage called ===");
     console.log("Full message:", JSON.stringify(message, null, 2));
-    
+
     const { roomId, participantId, payload } = message;
-    
+
     console.log("Extracted data:", { roomId, participantId, payload });
 
     try {
@@ -233,7 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .trim()
         .slice(0, 1000) // 最大1000文字に制限
         .replace(/[<>]/g, ''); // HTMLタグを除去
-      
+
       const sanitizedDisplayName = payload.displayName
         ?.toString()
         .trim()
@@ -300,9 +300,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   function broadcastToRoom(wss: WebSocketServer, roomId: string, message: any, excludeParticipant?: string) {
     wss.clients.forEach((client: WebSocketWithId) => {
-      if (client.readyState === WebSocket.OPEN && 
-          client.roomId === roomId && 
-          client.participantId !== excludeParticipant) {
+      if (client.readyState === WebSocket.OPEN &&
+        client.roomId === roomId &&
+        client.participantId !== excludeParticipant) {
         client.send(JSON.stringify(message));
       }
     });

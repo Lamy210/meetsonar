@@ -56,7 +56,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       leaveCall();
       if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Initialize WebSocket connection
@@ -1016,12 +1016,12 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     console.log("Socket state:", socketRef.current?.readyState);
     console.log("Room ID:", roomId);
     console.log("Display Name:", displayName);
-    
+
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       console.warn("WebSocket not connected, cannot send chat message");
       return;
     }
-    
+
     const chatData = {
       type: 'chat-message',
       roomId,
@@ -1032,7 +1032,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         type: 'text',
       },
     };
-    
+
     console.log("Sending chat message:", chatData);
     try {
       socketRef.current.send(JSON.stringify(chatData));
@@ -1048,7 +1048,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       console.warn("WebSocket not connected, cannot request chat history");
       return;
     }
-    
+
     console.log("Requesting chat history for room:", roomId);
     socketRef.current.send(
       JSON.stringify({

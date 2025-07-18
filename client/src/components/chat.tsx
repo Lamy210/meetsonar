@@ -113,7 +113,7 @@ export default function Chat({ roomId, participantId, displayName, isConnected, 
           {chatMessages.map((message, index) => {
             const isOwnMessage = message.participantId === participantId;
             const showAvatar = !isOwnMessage && (index === 0 || chatMessages[index - 1].participantId !== message.participantId);
-            
+
             return (
               <div
                 key={`${message.id}-${index}`}
@@ -126,11 +126,10 @@ export default function Chat({ roomId, participantId, displayName, isConnected, 
                     </div>
                   )}
                   <div
-                    className={`px-3 py-2 rounded-lg text-sm ${
-                      isOwnMessage
+                    className={`px-3 py-2 rounded-lg text-sm ${isOwnMessage
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-slate-700 text-slate-200'
-                    }`}
+                      }`}
                   >
                     <div>{message.message}</div>
                     <div className={`text-xs mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-slate-400'}`}>
