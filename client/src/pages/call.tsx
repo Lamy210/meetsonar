@@ -6,10 +6,10 @@ import ParticipantItem from "@/components/participant-item";
 import SettingsModal from "@/components/settings-modal";
 import InviteModal from "@/components/invite-modal";
 import { useWebRTC } from "@/hooks/use-webrtc";
-import { useWebSocket } from "@/hooks/use-websocket";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Video, Users, MessageSquare, Copy, UserPlus, RotateCcw } from "lucide-react";
+import TabChat from "@/components/tab-chat";
 
 export default function Call() {
   const { roomId } = useParams();
@@ -18,6 +18,9 @@ export default function Call() {
   const [showInvite, setShowInvite] = useState(false);
   const [connectionQuality, setConnectionQuality] = useState("HD");
   const [callDuration, setCallDuration] = useState("00:00");
+  const [currentTab, setCurrentTab] = useState("participants");
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [lastChatCount, setLastChatCount] = useState(0);
 
   const displayName = localStorage.getItem("displayName") || "Anonymous";
 
@@ -31,6 +34,9 @@ export default function Call() {
     isRecording,
     recordedChunks,
     connectionStatus,
+    chatMessages,
+    sendChatMessage,
+    requestChatHistory,
     toggleAudio,
     toggleVideo,
     toggleScreenShare,
@@ -40,7 +46,7 @@ export default function Call() {
     leaveCall,
   } = useWebRTC(roomId!, displayName);
 
-  const { isConnected, sendMessage } = useWebSocket("/ws", roomId!);
+  // const { isConnected } = useWebSocket("/ws", roomId!); // 重複削除
 
   useEffect(() => {
     if (!roomId) {
@@ -60,6 +66,16 @@ export default function Call() {
     return () => clearInterval(timer);
   }, [roomId, setLocation]);
 
+  // チャット未読カウント管理
+  useEffect(() => {
+    if (currentTab === "chat") {
+      setUnreadChatCount(0);
+      setLastChatCount(chatMessages.length);
+    } else if (chatMessages.length > lastChatCount) {
+      setUnreadChatCount(chatMessages.length - lastChatCount);
+    }
+  }, [chatMessages.length, currentTab, lastChatCount]);
+
   const handleLeaveCall = () => {
     leaveCall();
     setLocation("/");
@@ -70,7 +86,7 @@ export default function Call() {
     navigator.clipboard.writeText(link);
   };
 
-  if (!isConnected) {
+  if (connectionStatus !== 'connected') {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-50 flex items-center justify-center">
         <div className="text-center">
@@ -135,22 +151,29 @@ export default function Call() {
         </div>
 
         {/* Sidebar */}
-        <div className="w-80 bg-slate-800/50 backdrop-blur-md border-l border-slate-700/50 flex flex-col">
-          <div className="border-b border-slate-700/50 p-4">
-            <Tabs defaultValue="participants" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-slate-800">
-                <TabsTrigger value="participants" className="text-sm">
-                  <Users className="w-4 h-4 mr-2" />
-                  Participants ({participants.length})
-                </TabsTrigger>
-                <TabsTrigger value="chat" className="text-sm">
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Chat
-                </TabsTrigger>
-              </TabsList>
+        <div className="w-80 bg-slate-800/50 backdrop-blur-md border-l border-slate-700/50 flex flex-col h-full">
+          <div className="flex-1 flex flex-col">
+            <Tabs defaultValue="participants" value={currentTab} onValueChange={setCurrentTab} className="w-full h-full flex flex-col">
+              <div className="p-4 border-b border-slate-700/50">
+                <TabsList className="grid w-full grid-cols-2 bg-slate-800">
+                  <TabsTrigger value="participants" className="text-sm">
+                    <Users className="w-4 h-4 mr-2" />
+                    Participants ({participants.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="chat" className="text-sm relative">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    Chat
+                    {unreadChatCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
 
-              <TabsContent value="participants" className="mt-4">
-                <div className="space-y-3 max-h-96 overflow-y-auto">
+              <TabsContent value="participants" className="flex-1 p-4">
+                <div className="space-y-3 max-h-full overflow-y-auto">
                   {participants.map((participant) => (
                     <ParticipantItem
                       key={participant.id}
@@ -161,11 +184,16 @@ export default function Call() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="chat" className="mt-4">
-                <div className="text-center text-slate-400 py-8">
-                  <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Chat feature coming soon</p>
-                </div>
+              <TabsContent value="chat" className="flex-1">
+                <TabChat
+                  roomId={roomId!}
+                  participantId={displayName} // displayNameを使用（現在の実装に合わせる）
+                  displayName={displayName}
+                  connectionStatus={connectionStatus}
+                  sendMessage={sendChatMessage}
+                  chatMessages={chatMessages}
+                  requestChatHistory={requestChatHistory}
+                />
               </TabsContent>
             </Tabs>
           </div>

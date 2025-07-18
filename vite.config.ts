@@ -27,7 +27,20 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    // ソースマップの設定を改善
+    sourcemap: process.env.NODE_ENV === 'development' ? true : false,
+    // ロールアップ設定でエラーハンドリング強化
+    rollupOptions: {
+      onwarn(warning, warn) {
+        // ソースマップ関連の警告を抑制
+        if (warning.code === 'SOURCEMAP_ERROR' || warning.code === 'CIRCULAR_DEPENDENCY') {
+          return;
+        }
+        warn(warning);
+      }
+    }
   },
+  // 開発サーバー設定
   server: {
     host: "0.0.0.0",
     port: 5173,
@@ -46,5 +59,8 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+    hmr: {
+      overlay: false // エラーオーバーレイを無効化してソースマップエラーを軽減
+    }
   },
 });

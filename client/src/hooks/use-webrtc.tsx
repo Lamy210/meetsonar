@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { Participant } from "@shared/schema";
+import type { Participant, ChatMessage } from "@shared/schema";
 
 export interface UseWebRTCReturn {
   participants: Participant[];
@@ -11,6 +11,9 @@ export interface UseWebRTCReturn {
   isRecording: boolean;
   recordedChunks: Blob[];
   connectionStatus: "connecting" | "connected" | "disconnected" | "failed";
+  chatMessages: ChatMessage[];
+  sendChatMessage: (message: string) => void;
+  requestChatHistory: () => void;
   toggleAudio: () => void;
   toggleVideo: () => void;
   toggleScreenShare: () => void;
@@ -30,6 +33,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   const [isRecording, setIsRecording] = useState(false);
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected" | "failed">("connecting");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
   const localStreamRef = useRef<MediaStream | null>(null);
   const peerConnections = useRef(new Map<string, RTCPeerConnection>());
@@ -52,6 +56,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       leaveCall();
       if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Initialize WebSocket connection
@@ -74,19 +79,32 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     };
 
     socket.onmessage = async (event) => {
-      const message = JSON.parse(event.data);
-      await handleSignalingMessage(message);
+      try {
+        const message = JSON.parse(event.data);
+        await handleSignalingMessage(message);
+      } catch (error) {
+        console.error("Failed to parse WebSocket message:", error);
+      }
     };
 
     socket.onclose = () => {
       setConnectionStatus("disconnected");
     };
 
-    socket.onerror = () => {
+    socket.onerror = (error) => {
+      console.error("WebSocket error:", error);
       setConnectionStatus("failed");
     };
 
     return () => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: "leave-room",
+          roomId,
+          participantId: displayName,
+          payload: {}
+        }));
+      }
       socket.close();
     };
   }, [roomId, displayName]);
@@ -141,7 +159,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     };
   }, []);
 
-  const handleSignalingMessage = async (message: any) => {
+  const handleSignalingMessage = useCallback(async (message: any) => {
     console.log("Received signaling message:", message);
 
     switch (message.type) {
@@ -198,8 +216,18 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
             : p
         ));
         break;
+
+      case "chat-message":
+        console.log("Received chat message:", message.payload);
+        setChatMessages(prev => [...prev, message.payload]);
+        break;
+
+      case "chat-history":
+        console.log("Received chat history:", message.payload);
+        setChatMessages(message.payload);
+        break;
     }
-  };
+  }, [displayName]);
 
   const createPeerConnection = async (participantId: string) => {
     // Check if peer connection already exists and is in good state
@@ -981,6 +1009,62 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     URL.revokeObjectURL(url);
   }, [recordedChunks]);
 
+  // チャットメッセージ送信
+  const sendChatMessage = useCallback((message: string) => {
+    console.log("=== sendChatMessage called ===");
+    console.log("Message:", message);
+    console.log("Socket state:", socketRef.current?.readyState);
+    console.log("Room ID:", roomId);
+    console.log("Display Name:", displayName);
+    
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      console.warn("WebSocket not connected, cannot send chat message");
+      return;
+    }
+    
+    const chatData = {
+      type: 'chat-message',
+      roomId,
+      participantId: displayName, // 自分のparticipantIdを使用
+      payload: {
+        displayName,
+        message,
+        type: 'text',
+      },
+    };
+    
+    console.log("Sending chat message:", chatData);
+    try {
+      socketRef.current.send(JSON.stringify(chatData));
+      console.log("✅ Chat message sent successfully");
+    } catch (error) {
+      console.error("❌ Failed to send chat message:", error);
+    }
+  }, [roomId, displayName]);
+
+  // チャット履歴リクエスト
+  const requestChatHistory = useCallback(() => {
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      console.warn("WebSocket not connected, cannot request chat history");
+      return;
+    }
+    
+    console.log("Requesting chat history for room:", roomId);
+    socketRef.current.send(
+      JSON.stringify({
+        type: 'chat-history',
+        roomId,
+      })
+    );
+  }, [roomId]);
+
+  // 接続時にチャット履歴をリクエスト
+  useEffect(() => {
+    if (connectionStatus === 'connected') {
+      requestChatHistory();
+    }
+  }, [connectionStatus, requestChatHistory]);
+
   const leaveCall = useCallback(() => {
     // Stop local stream
     if (localStreamRef.current) {
@@ -1025,6 +1109,9 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     isRecording,
     recordedChunks,
     connectionStatus,
+    chatMessages,
+    sendChatMessage,
+    requestChatHistory,
     toggleAudio,
     toggleVideo,
     toggleScreenShare,

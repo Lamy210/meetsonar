@@ -72,6 +72,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case 'participant-update':
             await handleParticipantUpdate(ws, validatedMessage, wss);
             break;
+            
+          case 'chat-message':
+            await handleChatMessage(ws, validatedMessage, wss);
+            break;
+            
+          case 'chat-history':
+            await handleChatHistory(ws, validatedMessage);
+            break;
         }
       } catch (error) {
         console.error('WebSocket message error:', error);
@@ -208,6 +216,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       participantId: participantId,
       payload: payload
     }, participantId);
+  }
+
+  async function handleChatMessage(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
+    console.log("=== handleChatMessage called ===");
+    console.log("Full message:", JSON.stringify(message, null, 2));
+    
+    const { roomId, participantId, payload } = message;
+    
+    console.log("Extracted data:", { roomId, participantId, payload });
+
+    try {
+      // サニタイゼーション - XSS攻撃を防ぐ
+      const sanitizedMessage = payload.message
+        ?.toString()
+        .trim()
+        .slice(0, 1000) // 最大1000文字に制限
+        .replace(/[<>]/g, ''); // HTMLタグを除去
+      
+      const sanitizedDisplayName = payload.displayName
+        ?.toString()
+        .trim()
+        .slice(0, 50) // 最大50文字に制限
+        .replace(/[<>]/g, ''); // HTMLタグを除去
+
+      console.log("Sanitized data:", { sanitizedMessage, sanitizedDisplayName });
+
+      if (!sanitizedMessage || !sanitizedDisplayName) {
+        console.warn("❌ Invalid message content:", { sanitizedMessage, sanitizedDisplayName });
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Invalid message content'
+        }));
+        return;
+      }
+
+      // Save chat message to storage
+      console.log("💾 Saving chat message to database...");
+      const chatMessage = await storage.addChatMessage({
+        roomId,
+        participantId: participantId || 'unknown',
+        displayName: sanitizedDisplayName,
+        message: sanitizedMessage,
+        type: payload.type || 'text'
+      });
+
+      // Broadcast chat message to all participants in room
+      broadcastToRoom(wss, roomId, {
+        type: 'chat-message',
+        payload: chatMessage
+      });
+
+      console.log(`Chat message in room ${roomId} from ${sanitizedDisplayName}: ${sanitizedMessage}`);
+    } catch (error) {
+      console.error('Error handling chat message:', error);
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Failed to send chat message'
+      }));
+    }
+  }
+
+  async function handleChatHistory(ws: WebSocketWithId, message: any) {
+    const { roomId } = message;
+
+    try {
+      // Get chat history for the room
+      const chatHistory = await storage.getChatHistory(roomId);
+
+      // Send chat history to requesting participant
+      ws.send(JSON.stringify({
+        type: 'chat-history',
+        payload: chatHistory
+      }));
+    } catch (error) {
+      console.error('Error fetching chat history:', error);
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Failed to fetch chat history'
+      }));
+    }
   }
 
   function broadcastToRoom(wss: WebSocketServer, roomId: string, message: any, excludeParticipant?: string) {

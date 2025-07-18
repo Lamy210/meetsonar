@@ -51,6 +51,7 @@ services:
     # Resource limits for compose (applied by docker-compose)
     mem_limit: 512m
     mem_reservation: 256m
+    cpus: 1.0
     # Run Drizzle migrations before starting the dev server
     command: ["sh", "-c", "npm run db:push && npm run dev"]
     # 'develop' section removed; live reload via volumes above
@@ -76,8 +77,10 @@ services:
       resources:
         limits:
           memory: 512m
+          cpus: '1.0'
         reservations:
           memory: 256m
+          cpus: '0.5'
     command: npm run dev:client
     # Removed custom 'develop' sync section
 
