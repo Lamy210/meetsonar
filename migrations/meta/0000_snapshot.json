@@ -1,5 +1,5 @@
 {
-  "id": "78e86188-9bae-43fc-9c55-5ad7cc23f61e",
+  "id": "02c6c58e-40f3-42d4-acbf-23b7ef302e00",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -10,9 +10,10 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
         "room_id": {
           "name": "room_id",
@@ -38,6 +39,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "message_type": {
+          "name": "message_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'text'"
+        },
         "type": {
           "name": "type",
           "type": "text",
@@ -45,8 +53,41 @@
           "notNull": true,
           "default": "'text'"
         },
+        "reply_to_id": {
+          "name": "reply_to_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_edited": {
+          "name": "is_edited",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "is_deleted": {
+          "name": "is_deleted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "edited_at": {
+          "name": "edited_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
@@ -55,12 +96,38 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "chat_messages_room_id_rooms_id_fk": {
-          "name": "chat_messages_room_id_rooms_id_fk",
+        "chat_messages_room_id_rooms_room_id_fk": {
+          "name": "chat_messages_room_id_rooms_room_id_fk",
           "tableFrom": "chat_messages",
           "tableTo": "rooms",
           "columnsFrom": [
             "room_id"
+          ],
+          "columnsTo": [
+            "room_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "chat_messages_participant_id_participants_participant_id_fk": {
+          "name": "chat_messages_participant_id_participants_participant_id_fk",
+          "tableFrom": "chat_messages",
+          "tableTo": "participants",
+          "columnsFrom": [
+            "participant_id"
+          ],
+          "columnsTo": [
+            "participant_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "chat_messages_reply_to_id_chat_messages_id_fk": {
+          "name": "chat_messages_reply_to_id_chat_messages_id_fk",
+          "tableFrom": "chat_messages",
+          "tableTo": "chat_messages",
+          "columnsFrom": [
+            "reply_to_id"
           ],
           "columnsTo": [
             "id"
@@ -81,8 +148,15 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "uuid",
           "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "participant_id": {
+          "name": "participant_id",
+          "type": "text",
+          "primaryKey": false,
           "notNull": true
         },
         "room_id": {
@@ -93,7 +167,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "integer",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -102,6 +176,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'participant'"
         },
         "is_host": {
           "name": "is_host",
@@ -124,6 +205,20 @@
           "notNull": true,
           "default": true
         },
+        "is_screen_sharing": {
+          "name": "is_screen_sharing",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "connection_status": {
+          "name": "connection_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'connected'"
+        },
         "connection_id": {
           "name": "connection_id",
           "type": "text",
@@ -136,19 +231,32 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "left_at": {
+          "name": "left_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_active_at": {
+          "name": "last_active_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "participants_room_id_rooms_id_fk": {
-          "name": "participants_room_id_rooms_id_fk",
+        "participants_room_id_rooms_room_id_fk": {
+          "name": "participants_room_id_rooms_room_id_fk",
           "tableFrom": "participants",
           "tableTo": "rooms",
           "columnsFrom": [
             "room_id"
           ],
           "columnsTo": [
-            "id"
+            "room_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -168,7 +276,15 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "participants_participant_id_unique": {
+          "name": "participants_participant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "participant_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -179,21 +295,34 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
-        "name": {
-          "name": "name",
+        "room_id": {
+          "name": "room_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "host_id": {
           "name": "host_id",
-          "type": "integer",
+          "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "is_active": {
           "name": "is_active",
@@ -207,10 +336,82 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": 10
+          "default": 50
         },
         "settings": {
           "name": "settings",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "rooms_room_id_unique": {
+          "name": "rooms_room_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "room_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.signaling_logs": {
+      "name": "signaling_logs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "room_id": {
+          "name": "room_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "from_participant_id": {
+          "name": "from_participant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "to_participant_id": {
+          "name": "to_participant_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "message_type": {
+          "name": "message_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
@@ -225,15 +426,41 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "rooms_host_id_users_id_fk": {
-          "name": "rooms_host_id_users_id_fk",
-          "tableFrom": "rooms",
-          "tableTo": "users",
+        "signaling_logs_room_id_rooms_room_id_fk": {
+          "name": "signaling_logs_room_id_rooms_room_id_fk",
+          "tableFrom": "signaling_logs",
+          "tableTo": "rooms",
           "columnsFrom": [
-            "host_id"
+            "room_id"
           ],
           "columnsTo": [
-            "id"
+            "room_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "signaling_logs_from_participant_id_participants_participant_id_fk": {
+          "name": "signaling_logs_from_participant_id_participants_participant_id_fk",
+          "tableFrom": "signaling_logs",
+          "tableTo": "participants",
+          "columnsFrom": [
+            "from_participant_id"
+          ],
+          "columnsTo": [
+            "participant_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "signaling_logs_to_participant_id_participants_participant_id_fk": {
+          "name": "signaling_logs_to_participant_id_participants_participant_id_fk",
+          "tableFrom": "signaling_logs",
+          "tableTo": "participants",
+          "columnsFrom": [
+            "to_participant_id"
+          ],
+          "columnsTo": [
+            "participant_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -251,9 +478,10 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
         "username": {
           "name": "username",

@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
+import { talkStorage } from "./talk-storage";
 import { signalingMessageSchema } from "@shared/schema";
 
 interface WebSocketWithId extends WebSocket {
@@ -10,6 +11,115 @@ interface WebSocketWithId extends WebSocket {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ========= TalkDB API routes =========
+  // ミーティング管理
+  app.post("/api/meetings", async (req, res) => {
+    try {
+      // 入力検証
+      if (!req.body.title || req.body.title.trim().length === 0) {
+        return res.status(400).json({ error: "Meeting title is required" });
+      }
+      if (!req.body.hostId || req.body.hostId.trim().length === 0) {
+        return res.status(400).json({ error: "Host ID is required" });
+      }
+
+      const meetingId = await talkStorage.generateMeetingId();
+      const meeting = await talkStorage.createMeeting({
+        meetingId,
+        title: req.body.title.trim().slice(0, 200), // 長さ制限
+        description: req.body.description?.trim().slice(0, 1000) || "",
+        hostId: req.body.hostId.trim(),
+        maxParticipants: Math.min(req.body.maxParticipants || 50, 100), // 最大100人制限
+      });
+      res.status(201).json(meeting);
+    } catch (error) {
+      console.error("Failed to create meeting:", error);
+      res.status(500).json({ error: "Failed to create meeting" });
+    }
+  });
+
+  app.get("/api/meetings/:meetingId", async (req, res) => {
+    try {
+      const meeting = await talkStorage.getMeeting(req.params.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      res.json(meeting);
+    } catch (error) {
+      console.error("Failed to get meeting:", error);
+      res.status(500).json({ error: "Failed to get meeting" });
+    }
+  });
+
+  // 参加者管理
+  app.post("/api/meetings/:meetingId/participants", async (req, res) => {
+    try {
+      const participant = await talkStorage.addMeetingParticipant({
+        meetingId: req.params.meetingId,
+        participantId: req.body.participantId || req.body.connectionId, // connectionIdも受け入れる
+        displayName: req.body.displayName,
+        role: req.body.role || "participant",
+      });
+      res.status(201).json(participant);
+    } catch (error) {
+      console.error("Failed to add participant:", error);
+      res.status(500).json({ error: "Failed to add participant" });
+    }
+  });
+
+  app.get("/api/meetings/:meetingId/participants", async (req, res) => {
+    try {
+      const participants = await talkStorage.getMeetingParticipants(req.params.meetingId);
+      res.json(participants);
+    } catch (error) {
+      console.error("Failed to get participants:", error);
+      res.status(500).json({ error: "Failed to get participants" });
+    }
+  });
+
+  // チャット履歴
+  app.get("/api/meetings/:meetingId/chat", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const messages = await talkStorage.getTalkHistory(req.params.meetingId, limit);
+      res.json(messages);
+    } catch (error) {
+      console.error("Failed to get chat history:", error);
+      res.status(500).json({ error: "Failed to get chat history" });
+    }
+  });
+
+  app.post("/api/meetings/:meetingId/chat", async (req, res) => {
+    try {
+      const message = await talkStorage.addTalkMessage({
+        meetingId: req.params.meetingId,
+        participantId: req.body.participantId,
+        displayName: req.body.displayName,
+        message: req.body.message,
+        messageType: req.body.messageType || "text",
+        replyToId: req.body.replyToId || null,
+      });
+      res.status(201).json(message);
+    } catch (error) {
+      console.error("Failed to add chat message:", error);
+      res.status(500).json({ error: "Failed to add chat message" });
+    }
+  });
+
+  app.get("/api/meetings/:meetingId/stats", async (req, res) => {
+    try {
+      const stats = await talkStorage.getMeetingStats(req.params.meetingId);
+      if (!stats) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      res.json(stats);
+    } catch (error) {
+      console.error("Failed to get meeting stats:", error);
+      res.status(500).json({ error: "Failed to get meeting stats" });
+    }
+  });
+
+  // ========= 既存のAPI routes =========
   // REST API routes
   app.get("/api/rooms/:roomId", async (req, res) => {
     try {
@@ -154,6 +264,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       connectionId: participantId
     });
 
+    // TalkDB参加者管理との同期
+    if (payload.meetingId) {
+      try {
+        await talkStorage.addMeetingParticipant({
+          meetingId: payload.meetingId,
+          participantId: participantId,
+          displayName: payload.displayName,
+          role: "participant",
+        });
+        console.log(`✅ Synced participant to TalkDB meeting ${payload.meetingId}`);
+      } catch (talkError) {
+        console.warn("Failed to sync participant to TalkDB:", talkError);
+      }
+    }
+
     // Get all participants in room
     const participants = await storage.getParticipants(roomId);
 
@@ -248,8 +373,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("Full message:", JSON.stringify(message, null, 2));
 
     const { roomId, participantId, payload } = message;
+    const meetingId = payload.meetingId || roomId; // meetingIdが指定されていればそれを使用、なければroomIdにフォールバック
 
-    console.log("Extracted data:", { roomId, participantId, payload });
+    console.log("Extracted data:", { roomId, meetingId, participantId, payload });
 
     try {
       // サニタイゼーション - XSS攻撃を防ぐ
@@ -276,8 +402,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      // Save chat message to storage
+      // Save to both storage systems for compatibility
       console.log("💾 Saving chat message to database...");
+      
+      // Legacy chat storage
       const chatMessage = await storage.addChatMessage({
         roomId,
         participantId: participantId || 'unknown',
@@ -285,6 +413,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: sanitizedMessage,
         type: payload.type || 'text'
       });
+
+      // TalkDB storage (if meetingId is provided)
+      if (meetingId && meetingId !== roomId) {
+        try {
+          await talkStorage.addTalkMessage({
+            meetingId,
+            participantId: participantId || 'unknown',
+            displayName: sanitizedDisplayName,
+            message: sanitizedMessage,
+            messageType: payload.type || 'text',
+          });
+          console.log("✅ Saved to TalkDB as well");
+        } catch (talkError) {
+          console.warn("Failed to save to TalkDB:", talkError);
+        }
+      }
 
       // Broadcast chat message to all participants in room
       broadcastToRoom(wss, roomId, {
@@ -303,11 +447,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   async function handleChatHistory(ws: WebSocketWithId, message: any) {
-    const { roomId } = message;
+    const { roomId, payload } = message;
+    const meetingId = payload?.meetingId || roomId; // meetingIdが指定されていればそれを使用
 
     try {
-      // Get chat history for the room
-      const chatHistory = await storage.getChatHistory(roomId);
+      let chatHistory;
+      
+      // TalkDB からの履歴取得を優先
+      if (meetingId && meetingId !== roomId) {
+        try {
+          chatHistory = await talkStorage.getTalkHistory(meetingId);
+          console.log(`Retrieved ${chatHistory.length} messages from TalkDB for meeting ${meetingId}`);
+        } catch (talkError) {
+          console.warn("Failed to fetch from TalkDB, falling back to legacy storage:", talkError);
+          chatHistory = await storage.getChatHistory(roomId);
+        }
+      } else {
+        // Legacy storage
+        chatHistory = await storage.getChatHistory(roomId);
+      }
 
       // Send chat history to requesting participant
       ws.send(JSON.stringify({

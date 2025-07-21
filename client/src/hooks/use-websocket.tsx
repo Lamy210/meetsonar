@@ -12,9 +12,13 @@ export function useWebSocket(path: string, roomId?: string): UseWebSocketReturn 
   const socketRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}${path}`;
+    // 開発環境ではAPIサーバー（port 5000）に接続
+    const apiHost = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const wsHost = apiHost.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    const protocol = apiHost.startsWith('https:') ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${wsHost}${path}`;
     
+    console.log('Connecting to WebSocket:', wsUrl);
     const socket = new WebSocket(wsUrl);
     socketRef.current = socket;
 

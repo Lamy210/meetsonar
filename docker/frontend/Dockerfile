@@ -1,14 +1,14 @@
 # Frontend Dockerfile for MeetSonar
-FROM node:20-alpine
+FROM oven/bun:1-alpine
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json bun.lockb* ./
 
 # Install dependencies
-RUN npm ci
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY . .
@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 5173
 
 # Default command (can be overridden in docker-compose)
-CMD ["npm", "run", "dev:client"]
+CMD ["bun", "run", "dev:client"]

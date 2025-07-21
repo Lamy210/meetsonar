@@ -27,13 +27,16 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    // ソースマップの設定を改善
-    sourcemap: process.env.NODE_ENV === 'development' ? true : false,
+    // ソースマップを完全に無効化
+    sourcemap: false,
     // ロールアップ設定でエラーハンドリング強化
     rollupOptions: {
       onwarn(warning, warn) {
-        // ソースマップ関連の警告を抑制
-        if (warning.code === 'SOURCEMAP_ERROR' || warning.code === 'CIRCULAR_DEPENDENCY') {
+        // ソースマップ関連の警告を完全に抑制
+        if (warning.code === 'SOURCEMAP_ERROR' || 
+            warning.code === 'CIRCULAR_DEPENDENCY' ||
+            warning.message?.includes('sourcemap') ||
+            warning.message?.includes('source map')) {
           return;
         }
         warn(warning);
@@ -60,7 +63,26 @@ export default defineConfig({
       },
     },
     hmr: {
-      overlay: false // エラーオーバーレイを無効化してソースマップエラーを軽減
+      overlay: false, // エラーオーバーレイを無効化
+      clientPort: 5173
     }
   },
+  // esbuild設定でソースマップエラーを解決
+  esbuild: {
+    logOverride: {
+      'this-is-undefined-in-esm': 'silent'
+    }
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      sourcemap: false,
+      logLevel: 'silent'
+    },
+    exclude: ['@tanstack/query-core'],
+    // 依存関係の事前バンドルを強制的に実行
+    force: true
+  },
+  // ログレベルを調整してソースマップエラーを抑制
+  logLevel: 'warn',
+  clearScreen: false
 });

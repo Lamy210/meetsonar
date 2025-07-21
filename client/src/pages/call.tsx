@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import VideoGrid from "@/components/video-grid";
 import CallControls from "@/components/call-controls";
@@ -22,7 +22,18 @@ export default function Call() {
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [lastChatCount, setLastChatCount] = useState(0);
 
-  const displayName = localStorage.getItem("displayName") || "Anonymous";
+  // URLパラメータから表示名を取得、またはlocalStorageを使用
+  const urlParams = new URLSearchParams(window.location.search);
+  const nameFromUrl = urlParams.get("name");
+  if (nameFromUrl) {
+    localStorage.setItem("displayName", nameFromUrl);
+  }
+  const displayName = localStorage.getItem("displayName") || `User-${Math.random().toString(36).substr(2, 5)}`;
+
+  console.log("Call page - roomId from URL:", roomId);
+  console.log("Call page - displayName:", displayName);
+  console.log("Call page - connectionStatus:", connectionStatus);
+  console.log("Call page - participantId:", participantId);
 
   const {
     participants,
@@ -35,6 +46,7 @@ export default function Call() {
     recordedChunks,
     connectionStatus,
     chatMessages,
+    participantId,
     sendChatMessage,
     requestChatHistory,
     toggleAudio,
@@ -68,6 +80,15 @@ export default function Call() {
 
   // チャット未読カウント管理
   useEffect(() => {
+    console.log("=== Chat Debug ===", {
+      currentTab,
+      chatMessagesLength: chatMessages.length,
+      lastChatCount,
+      unreadChatCount,
+      connectionStatus,
+      participantId
+    });
+    
     if (currentTab === "chat") {
       setUnreadChatCount(0);
       setLastChatCount(chatMessages.length);
@@ -76,22 +97,39 @@ export default function Call() {
     }
   }, [chatMessages.length, currentTab, lastChatCount]);
 
-  const handleLeaveCall = () => {
+  // タブ切り替えのデバッグ
+  useEffect(() => {
+    console.log("=== Tab Changed ===", currentTab);
+  }, [currentTab]);
+
+  const handleLeaveCall = useCallback(() => {
     leaveCall();
     setLocation("/");
-  };
+  }, [leaveCall, setLocation]);
 
-  const copyRoomLink = () => {
+  const copyRoomLink = useCallback(() => {
     const link = `${window.location.origin}/room/${roomId}`;
     navigator.clipboard.writeText(link);
-  };
+  }, [roomId]);
 
   if (connectionStatus !== 'connected') {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-50 flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center space-y-4">
           <RotateCcw className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
           <p className="text-slate-400">Connecting to call...</p>
+          <div className="text-xs text-slate-500 space-y-1">
+            <p>Room ID: {roomId}</p>
+            <p>Display Name: {displayName}</p>
+            <p>Connection Status: {connectionStatus}</p>
+            <p>Participant ID: {participantId || 'Not assigned'}</p>
+          </div>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+          >
+            Reload Page
+          </button>
         </div>
       </div>
     );
@@ -138,82 +176,104 @@ export default function Call() {
       </header>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Video Area */}
-        <div className="flex-1 p-6">
+        <div className="flex-1 p-6 min-w-0">
           <VideoGrid
             localStream={localStream}
             remoteStreams={remoteStreams}
             participants={participants}
             isVideoEnabled={isVideoEnabled}
             displayName={displayName}
+            participantId={participantId}
           />
         </div>
 
         {/* Sidebar */}
-        <div className="w-80 bg-slate-800/50 backdrop-blur-md border-l border-slate-700/50 flex flex-col h-full">
-          <div className="flex-1 flex flex-col">
-            <Tabs defaultValue="participants" value={currentTab} onValueChange={setCurrentTab} className="w-full h-full flex flex-col">
-              <div className="p-4 border-b border-slate-700/50">
-                <TabsList className="grid w-full grid-cols-2 bg-slate-800">
-                  <TabsTrigger value="participants" className="text-sm">
-                    <Users className="w-4 h-4 mr-2" />
-                    Participants ({participants.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="chat" className="text-sm relative">
-                    <MessageSquare className="w-4 h-4 mr-2" />
-                    Chat
-                    {unreadChatCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {unreadChatCount > 9 ? '9+' : unreadChatCount}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                </TabsList>
+        <div className="w-80 bg-slate-800/50 backdrop-blur-md border-l border-slate-700/50 flex flex-col min-h-0 max-h-full">
+          <Tabs defaultValue="participants" value={currentTab} onValueChange={setCurrentTab} className="w-full h-full flex flex-col min-h-0">
+            <div className="p-4 border-b border-slate-700/50 flex-shrink-0">
+              <TabsList className="grid w-full grid-cols-2 bg-slate-800">
+                <TabsTrigger value="participants" className="text-sm">
+                  <Users className="w-4 h-4 mr-2" />
+                  Participants ({participants.length})
+                </TabsTrigger>
+                <TabsTrigger value="chat" className="text-sm relative">
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Chat
+                  {unreadChatCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+            </div>            <TabsContent value="participants" className="flex-1 flex flex-col mt-0 overflow-hidden">
+              {/* 参加者リストヘッダー */}
+              <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-800/30">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">参加者一覧</h3>
+                    <p className="text-xs text-slate-400">{participants.length}人が参加中</p>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-green-400">Live</span>
+                  </div>
+                </div>
               </div>
 
-              <TabsContent value="participants" className="flex-1 p-4">
-                <div className="space-y-3 max-h-full overflow-y-auto">
-                  {participants.map((participant) => (
-                    <ParticipantItem
-                      key={participant.id}
-                      participant={participant}
-                      isCurrentUser={participant.displayName === displayName}
-                    />
-                  ))}
+              {/* 参加者リスト */}
+              <div className="flex-1 p-4 overflow-y-auto">
+                <div className="space-y-2">
+                  {participants.length === 0 ? (
+                    <div className="text-center text-slate-400 py-8">
+                      <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">参加者を待っています...</p>
+                      <p className="text-xs mt-1">ルームリンクを共有して他の人を招待しましょう</p>
+                    </div>
+                  ) : (
+                    participants.map((participant, index) => (
+                      <ParticipantItem
+                        key={participant.id || participant.connectionId || `participant-${index}`}
+                        participant={participant}
+                        isCurrentUser={participant.connectionId === participantId}
+                      />
+                    ))
+                  )}
                 </div>
-              </TabsContent>
+              </div>
+            </TabsContent>
 
-              <TabsContent value="chat" className="flex-1">
-                <TabChat
-                  roomId={roomId!}
-                  participantId={displayName} // displayNameを使用（現在の実装に合わせる）
-                  displayName={displayName}
-                  connectionStatus={connectionStatus}
-                  sendMessage={sendChatMessage}
-                  chatMessages={chatMessages}
-                  requestChatHistory={requestChatHistory}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
+            <TabsContent value="chat" className="flex-1 flex flex-col mt-0 overflow-hidden">
+              <TabChat
+                roomId={roomId!}
+                participantId={participantId} // ユニークなセッションIDを使用
+                displayName={displayName}
+                connectionStatus={connectionStatus}
+                sendMessage={sendChatMessage}
+                chatMessages={chatMessages}
+                requestChatHistory={requestChatHistory}
+              />
+            </TabsContent>
 
-          {/* Quick Actions */}
-          <div className="border-t border-slate-700/50 p-4 mt-auto">
-            <div className="flex space-x-2">
-              <Button
-                onClick={() => setShowInvite(true)}
-                className="flex-1 bg-primary hover:bg-primary/90 text-white"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Invite
-              </Button>
-              <Button variant="outline" className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700">
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Record
-              </Button>
+            {/* Quick Actions */}
+            <div className="border-t border-slate-700/50 p-4 flex-shrink-0">
+              <div className="flex space-x-2">
+                <Button
+                  onClick={() => setShowInvite(true)}
+                  className="flex-1 bg-primary hover:bg-primary/90 text-white"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Invite
+                </Button>
+                <Button variant="outline" className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700">
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Record
+                </Button>
+              </div>
             </div>
-          </div>
+          </Tabs>
         </div>
       </div>
 

@@ -1,0 +1,575 @@
+import type { Express } from "express";
+import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
+import { storage } from "./storage";
+import { signalingMessageSchema } from "@shared/schema";
+import { logger } from "@/lib/logger";
+
+interface WebSocketWithId extends WebSocket {
+  participantId?: string;
+  roomId?: string;
+}
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // ========= Room Management API =========
+  
+  app.post("/api/rooms", async (req, res) => {
+    try {
+      if (!req.body.title || req.body.title.trim().length === 0) {
+        return res.status(400).json({ error: "Room title is required" });
+      }
+      if (!req.body.hostId || req.body.hostId.trim().length === 0) {
+        return res.status(400).json({ error: "Host ID is required" });
+      }
+
+      const roomId = await storage.generateRoomId();
+      const room = await storage.createRoom({
+        roomId,
+        title: req.body.title.trim().slice(0, 200),
+        description: req.body.description?.trim().slice(0, 1000) || "",
+        hostId: req.body.hostId.trim(),
+        maxParticipants: Math.min(req.body.maxParticipants || 50, 100),
+        isActive: true,
+      });
+      
+      res.status(201).json(room);
+    } catch (error) {
+      logger.error("Failed to create room:", error);
+      res.status(500).json({ error: "Failed to create room" });
+    }
+  });
+
+  app.get("/api/rooms/:roomId", async (req, res) => {
+    try {
+      const room = await storage.getRoom(req.params.roomId);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+      res.json(room);
+    } catch (error) {
+      logger.error("Failed to get room:", error);
+      res.status(500).json({ error: "Failed to get room" });
+    }
+  });
+
+  app.get("/api/rooms/:roomId/stats", async (req, res) => {
+    try {
+      const stats = await storage.getRoomStats(req.params.roomId);
+      if (!stats.room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+      res.json(stats);
+    } catch (error) {
+      logger.error("Failed to get room stats:", error);
+      res.status(500).json({ error: "Failed to get room stats" });
+    }
+  });
+
+  // ========= Participant Management API =========
+  
+  app.post("/api/rooms/:roomId/participants", async (req, res) => {
+    try {
+      const participantId = req.body.participantId || req.body.connectionId || await storage.generateParticipantId();
+      
+      const participant = await storage.addParticipant({
+        participantId,
+        roomId: req.params.roomId,
+        displayName: req.body.displayName,
+        role: req.body.role || "participant",
+        isHost: req.body.role === "host",
+        isMuted: req.body.isMuted || false,
+        isVideoEnabled: req.body.isVideoEnabled || false,
+        connectionStatus: "connected",
+        connectionId: req.body.connectionId,
+      });
+      
+      res.status(201).json(participant);
+    } catch (error) {
+      logger.error("Failed to add participant:", error);
+      res.status(500).json({ error: "Failed to add participant" });
+    }
+  });
+
+  app.get("/api/rooms/:roomId/participants", async (req, res) => {
+    try {
+      const participants = await storage.getParticipants(req.params.roomId);
+      res.json(participants);
+    } catch (error) {
+      logger.error("Failed to get participants:", error);
+      res.status(500).json({ error: "Failed to get participants" });
+    }
+  });
+
+  app.put("/api/participants/:participantId", async (req, res) => {
+    try {
+      const updated = await storage.updateParticipant(req.params.participantId, req.body);
+      if (!updated) {
+        return res.status(404).json({ error: "Participant not found" });
+      }
+      res.json(updated);
+    } catch (error) {
+      logger.error("Failed to update participant:", error);
+      res.status(500).json({ error: "Failed to update participant" });
+    }
+  });
+
+  // ========= Chat API =========
+  
+  app.get("/api/rooms/:roomId/chat", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const messages = await storage.getChatHistory(req.params.roomId, limit);
+      res.json(messages);
+    } catch (error) {
+      logger.error("Failed to get chat history:", error);
+      res.status(500).json({ error: "Failed to get chat history" });
+    }
+  });
+
+  app.post("/api/rooms/:roomId/chat", async (req, res) => {
+    try {
+      const message = await storage.addChatMessage({
+        roomId: req.params.roomId,
+        participantId: req.body.participantId,
+        displayName: req.body.displayName,
+        message: req.body.message,
+        messageType: req.body.messageType || "text",
+        type: req.body.type || req.body.messageType || "text",
+        replyToId: req.body.replyToId || null,
+      });
+      res.status(201).json(message);
+    } catch (error) {
+      logger.error("Failed to add chat message:", error);
+      res.status(500).json({ error: "Failed to add chat message" });
+    }
+  });
+
+  // ========= Legacy API Compatibility =========
+  
+  // Meeting endpoints (legacy compatibility)
+  app.post("/api/meetings", async (req, res) => {
+    try {
+      if (!req.body.title || req.body.title.trim().length === 0) {
+        return res.status(400).json({ error: "Meeting title is required" });
+      }
+      if (!req.body.hostId || req.body.hostId.trim().length === 0) {
+        return res.status(400).json({ error: "Host ID is required" });
+      }
+
+      const meetingId = await storage.generateMeetingId();
+      const meeting = await storage.createMeeting({
+        meetingId,
+        title: req.body.title.trim().slice(0, 200),
+        description: req.body.description?.trim().slice(0, 1000) || "",
+        hostId: req.body.hostId.trim(),
+        maxParticipants: Math.min(req.body.maxParticipants || 50, 100),
+      });
+      res.status(201).json(meeting);
+    } catch (error) {
+      logger.error("Failed to create meeting:", error);
+      res.status(500).json({ error: "Failed to create meeting" });
+    }
+  });
+
+  app.get("/api/meetings/:meetingId", async (req, res) => {
+    try {
+      const meeting = await storage.getMeeting(req.params.meetingId);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      res.json(meeting);
+    } catch (error) {
+      logger.error("Failed to get meeting:", error);
+      res.status(500).json({ error: "Failed to get meeting" });
+    }
+  });
+
+  app.post("/api/meetings/:meetingId/participants", async (req, res) => {
+    try {
+      const participant = await storage.addMeetingParticipant({
+        meetingId: req.params.meetingId,
+        participantId: req.body.participantId || req.body.connectionId,
+        displayName: req.body.displayName,
+        role: req.body.role || "participant",
+      });
+      res.status(201).json(participant);
+    } catch (error) {
+      logger.error("Failed to add participant:", error);
+      res.status(500).json({ error: "Failed to add participant" });
+    }
+  });
+
+  app.get("/api/meetings/:meetingId/participants", async (req, res) => {
+    try {
+      const participants = await storage.getMeetingParticipants(req.params.meetingId);
+      res.json(participants);
+    } catch (error) {
+      logger.error("Failed to get participants:", error);
+      res.status(500).json({ error: "Failed to get participants" });
+    }
+  });
+
+  app.get("/api/meetings/:meetingId/chat", async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const messages = await storage.getTalkHistory(req.params.meetingId, limit);
+      res.json(messages);
+    } catch (error) {
+      logger.error("Failed to get chat history:", error);
+      res.status(500).json({ error: "Failed to get chat history" });
+    }
+  });
+
+  app.post("/api/meetings/:meetingId/chat", async (req, res) => {
+    try {
+      const message = await storage.addTalkMessage({
+        meetingId: req.params.meetingId,
+        participantId: req.body.participantId,
+        displayName: req.body.displayName,
+        message: req.body.message,
+        messageType: req.body.messageType || "text",
+        replyToId: req.body.replyToId || null,
+      });
+      res.status(201).json(message);
+    } catch (error) {
+      logger.error("Failed to add chat message:", error);
+      res.status(500).json({ error: "Failed to add chat message" });
+    }
+  });
+
+  app.get("/api/meetings/:meetingId/stats", async (req, res) => {
+    try {
+      const stats = await storage.getMeetingStats(req.params.meetingId);
+      if (!stats.meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      res.json(stats);
+    } catch (error) {
+      logger.error("Failed to get meeting stats:", error);
+      res.status(500).json({ error: "Failed to get meeting stats" });
+    }
+  });
+
+  // ========= WebSocket Server =========
+  
+  const httpServer = createServer(app);
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws',
+    maxPayload: 1024 * 1024, // 1MB limit
+  });
+
+  let connectionCount = 0;
+  const MAX_CONNECTIONS = 1000;
+
+  wss.on('connection', (ws: WebSocketWithId, req) => {
+    connectionCount++;
+    logger.info(`New WebSocket connection (${connectionCount}/${MAX_CONNECTIONS})`);
+
+    if (connectionCount > MAX_CONNECTIONS) {
+      logger.warn('Max connections reached, closing new connection');
+      ws.close(1013, 'Server overloaded');
+      connectionCount--;
+      return;
+    }
+
+    ws.on('message', async (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        const validatedMessage = signalingMessageSchema.parse(message);
+
+        switch (validatedMessage.type) {
+          case 'join-room':
+            await handleJoinRoom(ws, validatedMessage, wss);
+            break;
+
+          case 'leave-room':
+            await handleLeaveRoom(ws, validatedMessage, wss);
+            break;
+
+          case 'offer':
+          case 'answer':
+          case 'ice-candidate':
+            await handleSignalingMessage(ws, validatedMessage, wss);
+            break;
+
+          case 'participant-update':
+            await handleParticipantUpdate(ws, validatedMessage, wss);
+            break;
+
+          case 'chat-message':
+            await handleChatMessage(ws, validatedMessage, wss);
+            break;
+
+          case 'chat-history':
+            await handleChatHistory(ws, validatedMessage);
+            break;
+        }
+      } catch (error) {
+        logger.error('WebSocket message error:', error);
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Invalid message format'
+        }));
+      }
+    });
+
+    ws.on('close', async () => {
+      connectionCount--;
+      logger.info(`WebSocket connection closed (${connectionCount}/${MAX_CONNECTIONS})`);
+      
+      if (ws.participantId && ws.roomId) {
+        await handleLeaveRoom(ws, {
+          type: 'leave-room',
+          roomId: ws.roomId,
+          participantId: ws.participantId,
+          payload: {}
+        }, wss);
+      }
+    });
+
+    ws.on('error', (error) => {
+      logger.error('WebSocket error:', error);
+      connectionCount--;
+    });
+  });
+
+  // ========= WebSocket Handlers =========
+  
+  async function handleJoinRoom(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
+    const { roomId, participantId, payload } = message;
+
+    ws.participantId = participantId;
+    ws.roomId = roomId;
+
+    try {
+      // Ensure room exists
+      let room = await storage.getRoom(roomId);
+      if (!room) {
+        room = await storage.createRoom({
+          roomId,
+          title: `Room ${roomId}`,
+          hostId: participantId,
+          maxParticipants: 50,
+          isActive: true,
+        });
+      }
+
+      // Add participant to room
+      const participant = await storage.addParticipant({
+        participantId,
+        roomId,
+        displayName: payload.displayName || "Anonymous",
+        role: payload.role || "participant",
+        isHost: payload.isHost || false,
+        isMuted: payload.isMuted || false,
+        isVideoEnabled: payload.isVideoEnabled || false,
+        connectionStatus: "connected",
+        connectionId: participantId,
+      });
+
+      // Get all participants in room
+      const participants = await storage.getParticipants(roomId);
+
+      // Send current participants list to new participant
+      ws.send(JSON.stringify({
+        type: 'participants-list',
+        payload: participants
+      }));
+
+      // Notify other participants about new participant
+      broadcastToRoom(wss, roomId, {
+        type: 'participant-joined',
+        payload: participant
+      }, participantId);
+
+      logger.info(`Participant ${participantId} joined room ${roomId}`);
+    } catch (error) {
+      logger.error(`Failed to handle join room for ${participantId}:`, error);
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Failed to join room'
+      }));
+    }
+  }
+
+  async function handleLeaveRoom(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
+    const { roomId, participantId } = message;
+
+    try {
+      await storage.removeParticipant(roomId, participantId);
+
+      broadcastToRoom(wss, roomId, {
+        type: 'participant-left',
+        payload: { participantId }
+      }, participantId);
+
+      logger.info(`Participant ${participantId} left room ${roomId}`);
+    } catch (error) {
+      logger.error(`Failed to handle leave room for ${participantId}:`, error);
+    }
+
+    ws.participantId = undefined;
+    ws.roomId = undefined;
+  }
+
+  async function handleSignalingMessage(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
+    const { roomId, participantId, targetParticipant, targetParticipantId, payload } = message;
+    const target = targetParticipant || targetParticipantId;
+
+    logger.debug(`Forwarding ${message.type} from ${participantId} to ${target || 'all'}`);
+
+    if (!payload) {
+      logger.error("Signaling message missing payload:", message.type);
+      return;
+    }
+
+    if ((message.type === 'offer' || message.type === 'answer') &&
+        (!payload.sdp || payload.sdp.trim().length === 0)) {
+      logger.error(`Invalid ${message.type} - missing or empty SDP from ${participantId}`);
+      return;
+    }
+
+    // Log signaling message for debugging
+    try {
+      await storage.addSignalingLog({
+        roomId,
+        fromParticipantId: participantId,
+        toParticipantId: target,
+        messageType: message.type,
+        payload: payload,
+      });
+    } catch (error) {
+      logger.warn("Failed to log signaling message:", error);
+    }
+
+    // Forward signaling message
+    wss.clients.forEach((client: WebSocketWithId) => {
+      if (client.readyState === WebSocket.OPEN &&
+          client.roomId === roomId &&
+          client.participantId !== participantId) {
+
+        if (target && client.participantId !== target) {
+          return;
+        }
+
+        logger.debug(`Sending ${message.type} to ${client.participantId}`);
+        client.send(JSON.stringify({
+          type: message.type,
+          participantId: participantId,
+          payload: payload
+        }));
+      }
+    });
+  }
+
+  async function handleParticipantUpdate(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
+    const { roomId, participantId, payload } = message;
+
+    try {
+      await storage.updateParticipant(participantId, payload);
+
+      broadcastToRoom(wss, roomId, {
+        type: 'participant-updated',
+        participantId: participantId,
+        payload: payload
+      }, participantId);
+    } catch (error) {
+      logger.error(`Failed to update participant ${participantId}:`, error);
+    }
+  }
+
+  async function handleChatMessage(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
+    const { roomId, participantId, payload } = message;
+
+    try {
+      const sanitizedMessage = payload.message
+        ?.toString()
+        .trim()
+        .slice(0, 1000)
+        .replace(/[<>]/g, '');
+
+      const sanitizedDisplayName = payload.displayName
+        ?.toString()
+        .trim()
+        .slice(0, 50)
+        .replace(/[<>]/g, '');
+
+      if (!sanitizedMessage || !sanitizedDisplayName) {
+        logger.warn("Invalid message content:", { sanitizedMessage, sanitizedDisplayName });
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Invalid message content'
+        }));
+        return;
+      }
+
+      const chatMessage = await storage.addChatMessage({
+        roomId,
+        participantId: participantId || 'unknown',
+        displayName: sanitizedDisplayName,
+        message: sanitizedMessage,
+        messageType: payload.messageType || payload.type || 'text',
+        type: payload.type || payload.messageType || 'text',
+      });
+
+      broadcastToRoom(wss, roomId, {
+        type: 'chat-message',
+        payload: chatMessage
+      });
+
+      logger.debug(`Chat message in room ${roomId} from ${sanitizedDisplayName}: ${sanitizedMessage}`);
+    } catch (error) {
+      logger.error('Error handling chat message:', error);
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Failed to send chat message'
+      }));
+    }
+  }
+
+  async function handleChatHistory(ws: WebSocketWithId, message: any) {
+    const { roomId, payload } = message;
+
+    try {
+      const limit = payload?.limit || 100;
+      const chatHistory = await storage.getChatHistory(roomId, limit);
+
+      ws.send(JSON.stringify({
+        type: 'chat-history',
+        payload: chatHistory
+      }));
+    } catch (error) {
+      logger.error('Error fetching chat history:', error);
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Failed to fetch chat history'
+      }));
+    }
+  }
+
+  function broadcastToRoom(wss: WebSocketServer, roomId: string, message: any, excludeParticipant?: string) {
+    const messageStr = JSON.stringify(message);
+    let sentCount = 0;
+    let errorCount = 0;
+
+    wss.clients.forEach((client: WebSocketWithId) => {
+      if (client.readyState === WebSocket.OPEN &&
+          client.roomId === roomId &&
+          client.participantId !== excludeParticipant) {
+        try {
+          client.send(messageStr);
+          sentCount++;
+        } catch (error) {
+          logger.error(`Failed to send message to participant ${client.participantId}:`, error);
+          errorCount++;
+        }
+      }
+    });
+
+    logger.debug(`Broadcast to room ${roomId}: sent to ${sentCount} clients, ${errorCount} errors`);
+  }
+
+  return httpServer;
+}

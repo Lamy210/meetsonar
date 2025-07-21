@@ -1,74 +1,145 @@
-// @ts-ignore: Allow default import of express
-import express from "express";
-import type { Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
+// Simple Bun server for MeetSonar
+import { storage } from "./storage";
+import { createWebSocketHandler } from "./websocket-handler";
 
-const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+const port = parseInt(process.env.PORT || "5000", 10);
 
-app.use((req: Request, res: Response, next: NextFunction) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+// データベース接続確認
+console.log("Connecting to PostgreSQL database:", process.env.DATABASE_URL?.replace(/\/\/.*@/, "//***@"));
 
-  // Override res.json to capture response; use any to avoid TS errors
-  const originalResJson: any = res.json;
-  res.json = function (bodyJson: any, ...args: any[]): any {
-    capturedJsonResponse = bodyJson;
-    // Apply original json method with captured body and additional args
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
+function log(message: string) {
+  const timestamp = new Date().toLocaleTimeString();
+  console.log(`${timestamp} [bun] ${message}`);
+}
 
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+const server = Bun.serve({
+  port,
+  hostname: "0.0.0.0",
+  async fetch(req: Request, server: any) {
+    const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
+    const start = Date.now();
+    
+    // WebSocketアップグレード処理
+    if (url.pathname === "/ws") {
+      console.log("WebSocket upgrade request received");
+      console.log("Headers:", Object.fromEntries(req.headers.entries()));
+      
+      const success = server.upgrade(req, {
+        data: {
+          participantId: undefined,
+          roomId: undefined,
+        },
+      });
+      
+      if (!success) {
+        console.error("WebSocket upgrade failed");
+        return new Response("WebSocket upgrade failed", { status: 400 });
       }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+      
+      console.log("WebSocket upgrade successful");
+      return undefined;
     }
-  });
-
-  next();
+    
+    // API routes handling
+    if (url.pathname.startsWith('/api/')) {
+      let response: Response;
+      try {
+        if (url.pathname.match(/^\/api\/rooms\/([^\/]+)\/participants$/)) {
+          const roomId = url.pathname.split('/')[3];
+          const participants = await storage.getParticipants(roomId);
+          response = new Response(JSON.stringify(participants), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else if (url.pathname.match(/^\/api\/rooms\/([^\/]+)$/) && req.method === 'GET') {
+          const roomId = url.pathname.split('/')[3];
+          const room = await storage.getRoom(roomId);
+          if (!room) {
+            response = new Response(JSON.stringify({ error: "Room not found" }), {
+              status: 404,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          } else {
+            response = new Response(JSON.stringify(room), {
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+        } else if (url.pathname === '/api/rooms' && req.method === 'POST') {
+          const body = await req.json();
+          const room = await storage.createRoom(body);
+          response = new Response(JSON.stringify(room), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else if (url.pathname.match(/^\/api\/rooms\/([^\/]+)\/messages$/) && req.method === 'GET') {
+          const roomId = url.pathname.split('/')[3];
+          const messages = await storage.getChatHistory(roomId);
+          response = new Response(JSON.stringify(messages), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else if (url.pathname.match(/^\/api\/rooms\/([^\/]+)\/messages$/) && req.method === 'POST') {
+          const roomId = url.pathname.split('/')[3];
+          const body = await req.json();
+          const message = await storage.addChatMessage({
+            ...body,
+            roomId
+          });
+          response = new Response(JSON.stringify(message), {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else if (url.pathname === '/api/rooms' && req.method === 'GET') {
+          // Room list endpoint if needed
+          response = new Response(JSON.stringify([]), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } else {
+          response = new Response(JSON.stringify({ error: "Not found" }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        
+        // ログ出力
+        const duration = Date.now() - start;
+        let logLine = `${req.method} ${url.pathname} ${response.status} in ${duration}ms`;
+        if (response.status < 400) {
+          try {
+            const responseText = await response.clone().text();
+            const responseData = JSON.parse(responseText);
+            logLine += ` :: ${JSON.stringify(responseData)}`;
+          } catch {
+            // レスポンスデータの解析に失敗した場合は無視
+          }
+        }
+        if (logLine.length > 80) {
+          logLine = logLine.slice(0, 79) + "…";
+        }
+        log(logLine);
+        
+        return response;
+      } catch (error) {
+        console.error('API Error:', error);
+        console.error('Error stack:', error instanceof Error ? error.stack : 'No stack available');
+        console.error('Error message:', error instanceof Error ? error.message : String(error));
+        const errorResponse = new Response(JSON.stringify({ 
+          error: "Internal server error",
+          details: error instanceof Error ? error.message : String(error)
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const duration = Date.now() - start;
+        log(`${req.method} ${url.pathname} 500 in ${duration}ms :: {"error":"Internal server error"}`);
+        
+        return errorResponse;
+      }
+    }
+    
+    // 静的ファイルまたはフロントエンド
+    return new Response("Not Found", { status: 404 });
+  },
+  websocket: createWebSocketHandler(),
 });
 
-(async () => {
-  const server = await registerRoutes(app);
-
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
-  });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
-  });
-})();
+log(`serving on port ${port}`);

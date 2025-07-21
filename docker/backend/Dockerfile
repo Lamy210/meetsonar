@@ -1,5 +1,5 @@
 # Backend Dockerfile for MeetSonar
-FROM node:20-alpine
+FROM oven/bun:1-alpine
 
 # Install dependencies for native modules and development tools
 RUN apk add --no-cache python3 make g++ git
@@ -8,10 +8,10 @@ RUN apk add --no-cache python3 make g++ git
 WORKDIR /app
 
 # Copy package files first for better caching
-COPY package*.json ./
+COPY package.json bun.lockb* ./
 
 # Install dependencies
-RUN npm ci
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY . .
@@ -23,4 +23,4 @@ RUN mkdir -p dist
 EXPOSE 5000
 
 # Default command (can be overridden in docker-compose)
-CMD ["npm", "run", "dev"]
+CMD ["bun", "run", "dev"]

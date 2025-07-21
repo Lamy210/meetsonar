@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Participant, ChatMessage } from "@shared/schema";
+import { logger } from "@/lib/logger";
 
 export interface UseWebRTCReturn {
   participants: Participant[];
@@ -12,6 +13,7 @@ export interface UseWebRTCReturn {
   recordedChunks: Blob[];
   connectionStatus: "connecting" | "connected" | "disconnected" | "failed";
   chatMessages: ChatMessage[];
+  participantId: string;
   sendChatMessage: (message: string) => void;
   requestChatHistory: () => void;
   toggleAudio: () => void;
@@ -24,6 +26,11 @@ export interface UseWebRTCReturn {
 }
 
 export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn {
+  console.log("useWebRTC - roomId:", roomId, "displayName:", displayName);
+  
+  // Generate a unique session ID for this browser tab/instance
+  const sessionId = useRef<string>(`${displayName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
+  
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState(new Map<string, MediaStream>());
@@ -50,58 +57,97 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   // store RAF id for recording loop
   const animationFrameIdRef = useRef<number>();
 
-  // cleanup on unmount
-  useEffect(() => {
-    return () => {
-      leaveCall();
-      if (animationFrameIdRef.current) cancelAnimationFrame(animationFrameIdRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Initialize WebSocket connection
   useEffect(() => {
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    // 開発環境ではAPIサーバー（port 5000）に接続
+    const apiHost = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const wsHost = apiHost.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    const protocol = apiHost.startsWith('https:') ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${wsHost}/ws`;
 
+    console.log('=== WebSocket Connection Debug ===');
+    console.log('API Host:', apiHost);
+    console.log('WS Host:', wsHost);
+    console.log('Protocol:', protocol);
+    console.log('Final WebSocket URL:', wsUrl);
+    console.log('Room ID:', roomId);
+    console.log('Display Name:', displayName);
+    console.log('Session ID:', sessionId.current);
+
+    console.log('WebRTC connecting to WebSocket:', wsUrl);
     const socket = new WebSocket(wsUrl);
     socketRef.current = socket;
 
+    // 接続タイムアウトを設定
+    const connectionTimeout = setTimeout(() => {
+      if (socket.readyState === WebSocket.CONNECTING) {
+        console.error('⏰ WebSocket connection timeout');
+        socket.close();
+        setConnectionStatus("failed");
+      }
+    }, 10000); // 10秒タイムアウト
+
     socket.onopen = () => {
+      console.log('✅ WebSocket connection opened successfully');
+      clearTimeout(connectionTimeout);
       setConnectionStatus("connected");
+      console.log(`🔗 WebSocket connected to room: ${roomId} with sessionId: ${sessionId.current}`);
       // Join room
-      socket.send(JSON.stringify({
+      const joinMessage = {
         type: "join-room",
         roomId,
-        participantId: displayName,
+        participantId: sessionId.current,
         payload: { displayName }
-      }));
+      };
+      console.log('Sending join-room message:', joinMessage);
+      socket.send(JSON.stringify(joinMessage));
     };
 
     socket.onmessage = async (event) => {
       try {
         const message = JSON.parse(event.data);
+        console.log('📨 WebSocket message received:', message);
         await handleSignalingMessage(message);
       } catch (error) {
         console.error("Failed to parse WebSocket message:", error);
       }
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
+      console.log('❌ WebSocket connection closed:', event.code, event.reason);
+      clearTimeout(connectionTimeout);
       setConnectionStatus("disconnected");
     };
 
     socket.onerror = (error) => {
-      console.error("WebSocket error:", error);
+      console.error("❌ WebSocket error:", error);
+      clearTimeout(connectionTimeout);
       setConnectionStatus("failed");
     };
 
+    // 接続状態を定期的にチェック
+    const statusInterval = setInterval(() => {
+      if (socket.readyState === WebSocket.CONNECTING) {
+        console.log('⏳ WebSocket still connecting...');
+      } else if (socket.readyState === WebSocket.OPEN) {
+        console.log('✅ WebSocket connection is open');
+      } else if (socket.readyState === WebSocket.CLOSING) {
+        console.log('⚠️ WebSocket connection is closing');
+      } else if (socket.readyState === WebSocket.CLOSED) {
+        console.log('❌ WebSocket connection is closed');
+        clearInterval(statusInterval);
+      }
+    }, 2000);
+
     return () => {
+      console.log('🧹 Cleaning up WebSocket connection');
+      clearTimeout(connectionTimeout);
+      clearInterval(statusInterval);
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
           type: "leave-room",
           roomId,
-          participantId: displayName,
+          participantId: sessionId.current,
           payload: {}
         }));
       }
@@ -132,21 +178,21 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         // Set initial states
         stream.getAudioTracks().forEach(track => {
           track.enabled = isAudioEnabled;
-          console.log("Audio track initialized:", track.label, track.enabled);
+          logger.debug("Audio track initialized:", track.label, track.enabled);
         });
         stream.getVideoTracks().forEach(track => {
           track.enabled = isVideoEnabled;
-          console.log("Video track initialized:", track.label, track.enabled);
+          logger.debug("Video track initialized:", track.label, track.enabled);
         });
 
-        console.log("Local stream initialized:", {
+        logger.info("Local stream initialized:", {
           streamId: stream.id,
           audioTracks: stream.getAudioTracks().length,
           videoTracks: stream.getVideoTracks().length,
           tracks: stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState }))
         });
       } catch (error) {
-        console.error("Failed to get user media:", error);
+        logger.error("Failed to get user media:", error);
       }
     };
 
@@ -161,22 +207,47 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
   const handleSignalingMessage = useCallback(async (message: any) => {
     console.log("Received signaling message:", message);
+    console.log("Message payload:", message.payload);
 
     switch (message.type) {
       case "participant-joined":
-        setParticipants(prev => {
-          // Avoid duplicate participants
-          const exists = prev.some(p => p.connectionId === message.payload.connectionId);
-          if (exists) {
-            console.warn("Participant already exists:", message.payload.connectionId);
-            return prev;
-          }
-          console.log("Adding new participant:", message.payload.connectionId);
-          return [...prev, message.payload];
-        });
+        const newParticipant = message.payload.participant;
+        const allParticipants = message.payload.participants;
+        
+        console.log("New participant joined:", newParticipant);
+        console.log("All participants:", allParticipants);
+        
+        if (!newParticipant) {
+          console.warn("No participant data in participant-joined message");
+          break;
+        }
+        
+        // 全体の参加者リストを更新（重複排除）
+        if (allParticipants && Array.isArray(allParticipants)) {
+          setParticipants(prev => {
+            // 新しいリストから重複を除去
+            const uniqueParticipants = allParticipants.filter((p: Participant, index: number, self: Participant[]) => {
+              return self.findIndex((participant: Participant) => participant.connectionId === p.connectionId) === index;
+            });
+            console.log("Setting participants with deduplication:", uniqueParticipants.length, "participants");
+            return uniqueParticipants;
+          });
+        } else {
+          // 個別追加（フォールバック）
+          setParticipants(prev => {
+            const exists = prev.some(p => p.connectionId === newParticipant.connectionId);
+            if (exists) {
+              console.warn("Participant already exists:", newParticipant.connectionId);
+              return prev;
+            }
+            console.log("Adding new participant:", newParticipant.connectionId);
+            return [...prev, newParticipant];
+          });
+        }
+        
         // Create peer connection for the new participant (only if it's not us)
-        if (message.payload.connectionId !== displayName) {
-          await createPeerConnection(message.payload.connectionId);
+        if (newParticipant.connectionId !== sessionId.current) {
+          await createPeerConnection(newParticipant.connectionId);
         }
         break;
 
@@ -186,11 +257,17 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         break;
 
       case "participants-list":
-        console.log("Received participants list:", message.payload.length, "participants");
-        setParticipants(message.payload);
+        console.log("Received participants list:", message.payload.length, "participants", message.payload);
+        const participantsList = message.payload || [];
+        // 重複排除
+        const uniqueParticipantsList = participantsList.filter((p: Participant, index: number, self: Participant[]) => {
+          return self.findIndex((participant: Participant) => participant.connectionId === p.connectionId) === index;
+        });
+        console.log("Setting deduplicated participants list:", uniqueParticipantsList.length, "participants");
+        setParticipants(uniqueParticipantsList);
         // Create peer connections for existing participants
-        for (const participant of message.payload) {
-          if (participant.connectionId !== displayName) {
+        for (const participant of uniqueParticipantsList) {
+          if (participant.connectionId !== sessionId.current) {
             console.log("Creating peer connection for existing participant:", participant.connectionId);
             await createPeerConnection(participant.connectionId);
           }
@@ -218,13 +295,57 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         break;
 
       case "chat-message":
-        console.log("Received chat message:", message.payload);
-        setChatMessages(prev => [...prev, message.payload]);
+        console.log("=== CHAT MESSAGE RECEIVED ===");
+        console.log("Raw message:", message);
+        console.log("Payload:", message.payload);
+        console.log("Current chat messages count:", chatMessages.length);
+        
+        if (!message.payload) {
+          console.error("No payload in chat message");
+          break;
+        }
+        
+        setChatMessages(prev => {
+          console.log("Previous messages:", prev);
+          console.log("Previous messages count:", prev.length);
+          
+          // 重複チェック（IDが同じメッセージを追加しない）
+          if (message.payload.id) {
+            const exists = prev.some(msg => msg.id === message.payload.id);
+            if (exists) {
+              console.warn("Duplicate chat message received:", message.payload.id);
+              return prev;
+            }
+          }
+          
+          const newMessages = [...prev, message.payload];
+          console.log("Updated messages:", newMessages);
+          console.log("Updated messages count:", newMessages.length);
+          return newMessages;
+        });
         break;
 
       case "chat-history":
-        console.log("Received chat history:", message.payload);
-        setChatMessages(message.payload);
+        console.log("=== CHAT HISTORY RECEIVED ===");
+        console.log("Raw message:", message);
+        console.log("Payload:", message.payload);
+        
+        let historyMessages = [];
+        if (message.payload && message.payload.messages) {
+          historyMessages = message.payload.messages;
+        } else if (Array.isArray(message.payload)) {
+          historyMessages = message.payload;
+        } else {
+          console.warn("Invalid chat history format:", message.payload);
+          historyMessages = [];
+        }
+        
+        console.log("Extracted history messages:", historyMessages);
+        console.log("History messages count:", historyMessages.length);
+        console.log("History messages type check:", Array.isArray(historyMessages));
+        
+        setChatMessages(historyMessages);
+        console.log("✅ Set chat messages from history - count:", historyMessages.length);
         break;
     }
   }, [displayName]);
@@ -1015,7 +1136,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     console.log("Message:", message);
     console.log("Socket state:", socketRef.current?.readyState);
     console.log("Room ID:", roomId);
-    console.log("Display Name:", displayName);
+    console.log("Session ID:", sessionId.current);
 
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       console.warn("WebSocket not connected, cannot send chat message");
@@ -1025,7 +1146,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     const chatData = {
       type: 'chat-message',
       roomId,
-      participantId: displayName, // 自分のparticipantIdを使用
+      participantId: sessionId.current, // ユニークなセッションIDを使用
       payload: {
         displayName,
         message,
@@ -1044,24 +1165,43 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
   // チャット履歴リクエスト
   const requestChatHistory = useCallback(() => {
+    console.log("=== requestChatHistory called ===");
+    console.log("Socket state:", socketRef.current?.readyState);
+    console.log("Room ID:", roomId);
+    
     if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
       console.warn("WebSocket not connected, cannot request chat history");
       return;
     }
 
     console.log("Requesting chat history for room:", roomId);
-    socketRef.current.send(
-      JSON.stringify({
-        type: 'chat-history',
-        roomId,
-      })
-    );
+    const historyRequest = {
+      type: 'chat-history',
+      roomId,
+    };
+    
+    console.log("Sending history request:", historyRequest);
+    try {
+      socketRef.current.send(JSON.stringify(historyRequest));
+      console.log("✅ Chat history request sent successfully");
+    } catch (error) {
+      console.error("❌ Failed to send chat history request:", error);
+    }
   }, [roomId]);
 
   // 接続時にチャット履歴をリクエスト
   useEffect(() => {
     if (connectionStatus === 'connected') {
-      requestChatHistory();
+      console.log("Connection status changed to 'connected', requesting chat history...");
+      // 少し遅延してからリクエスト（WebSocket接続が完全に安定してから）
+      setTimeout(() => {
+        requestChatHistory();
+      }, 500);
+      
+      // さらに1秒後にもう一度リクエスト（確実に取得するため）
+      setTimeout(() => {
+        requestChatHistory();
+      }, 1500);
     }
   }, [connectionStatus, requestChatHistory]);
 
@@ -1097,7 +1237,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         cancelAnimationFrame(animationFrameIdRef.current);
       }
     };
-  }, []);
+  }, [leaveCall]);
 
   return {
     participants,
@@ -1110,6 +1250,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     recordedChunks,
     connectionStatus,
     chatMessages,
+    participantId: sessionId.current,
     sendChatMessage,
     requestChatHistory,
     toggleAudio,

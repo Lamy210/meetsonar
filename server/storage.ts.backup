@@ -81,19 +81,6 @@ export class MemStorage implements IStorage {
   }
 
   async addParticipant(participant: InsertParticipant): Promise<Participant> {
-    const roomParticipants = this.participants.get(participant.roomId) || [];
-    
-    // Check if participant already exists
-    const existingParticipant = roomParticipants.find(p => 
-      p.connectionId === participant.connectionId || 
-      (p.displayName === participant.displayName && p.connectionId === participant.connectionId)
-    );
-    
-    if (existingParticipant) {
-      console.log(`Participant ${participant.connectionId} already exists in room ${participant.roomId}, returning existing`);
-      return existingParticipant;
-    }
-
     const newParticipant: Participant = {
       ...participant,
       id: this.participantIdCounter++,
@@ -105,6 +92,8 @@ export class MemStorage implements IStorage {
       joinedAt: new Date(),
     };
 
+    const roomParticipants = this.participants.get(participant.roomId) || [];
+
     // Set as host if first participant
     if (roomParticipants.length === 0) {
       newParticipant.isHost = true;
@@ -113,7 +102,6 @@ export class MemStorage implements IStorage {
     roomParticipants.push(newParticipant);
     this.participants.set(participant.roomId, roomParticipants);
 
-    console.log(`Added new participant ${participant.connectionId} to room ${participant.roomId}`);
     return newParticipant;
   }
 
@@ -213,13 +201,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async addParticipant(participant: InsertParticipant): Promise<Participant> {
-    // Check if participant already exists
-    const existingParticipant = await this.getParticipant(participant.roomId, participant.connectionId || '');
-    if (existingParticipant) {
-      console.log(`Participant ${participant.connectionId} already exists in room ${participant.roomId}, returning existing`);
-      return existingParticipant;
-    }
-
     // Check if this is the first participant (should be host)
     const existingParticipants = await this.getParticipants(participant.roomId);
     const isHost = existingParticipants.length === 0;
@@ -235,8 +216,6 @@ export class DatabaseStorage implements IStorage {
         connectionId: participant.connectionId || null,
       })
       .returning();
-    
-    console.log(`Added new participant ${participant.connectionId} to room ${participant.roomId}`);
     return newParticipant;
   }
 
