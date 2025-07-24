@@ -1,5 +1,5 @@
 // WebSocket接続テストスクリプト
-const WebSocket = require('ws');
+import WebSocket from 'ws';
 
 const testWebSocket = () => {
   console.log('Testing WebSocket connection...');

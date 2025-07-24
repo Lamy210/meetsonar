@@ -75,6 +75,18 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   // store RAF id for recording loop
   const animationFrameIdRef = useRef<number>();
 
+  // WebSocket connection retry state (ドキュメント仮説3: リトライ機能実装)
+  const [retryCount, setRetryCount] = useState(0);
+  const [maxRetries] = useState(5);
+  const retryTimeouts = useRef<NodeJS.Timeout[]>([]);
+  const reconnectAttempts = useRef(0);
+
+  // Clear all retry timeouts on cleanup
+  const clearRetryTimeouts = useCallback(() => {
+    retryTimeouts.current.forEach(timeout => clearTimeout(timeout));
+    retryTimeouts.current = [];
+  }, []);
+
   // Initialize WebSocket connection
   useEffect(() => {
     console.log("=== useEffect WebSocket Connection Starting ===");
@@ -83,6 +95,13 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     // roomId または displayName が無効な場合は早期リターン
     if (!roomId || !displayName) {
       console.error("❌ Invalid roomId or displayName", { roomId, displayName });
+      setConnectionStatus("disconnected");
+      return;
+    }
+    
+    // 既に接続中または接続済みの場合はスキップ
+    if (socketRef.current && (socketRef.current.readyState === WebSocket.CONNECTING || socketRef.current.readyState === WebSocket.OPEN)) {
+      console.log("⚠️ WebSocket connection already exists, skipping new connection");
       return;
     }
     
@@ -95,8 +114,9 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       wsUrl = `${protocol}//${window.location.host}/ws`;
     } else {
-      // 開発環境では直接バックエンドポート（5000）に接続
-      wsUrl = `ws://localhost:5000/ws`;
+      // 開発環境では常にViteプロキシ経由でアクセス（ドキュメント仮説1の修正）
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      wsUrl = `${protocol}//${window.location.host}/ws`;
     }
 
     console.log('=== WebSocket Connection Debug ===');
@@ -189,15 +209,61 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       console.log('❌ WebSocket connection closed. Code:', event.code, 'Reason:', event.reason);
       console.log('Was clean:', event.wasClean);
       console.log('Socket final readyState:', socket.readyState);
+      console.log('Reconnect attempts so far:', reconnectAttempts.current);
       clearTimeout(connectionTimeout);
       setConnectionStatus("disconnected");
+      
+      // 改善されたリトライ機能（ドキュメント仮説3の実装）
+      const shouldRetry = !event.wasClean && 
+                         event.code !== 1000 && 
+                         event.code !== 1001 && 
+                         reconnectAttempts.current < maxRetries;
+      
+      if (shouldRetry) {
+        reconnectAttempts.current++;
+        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current - 1), 30000); // Exponential backoff
+        console.log(`🔄 Attempting WebSocket reconnection ${reconnectAttempts.current}/${maxRetries} in ${delay}ms...`);
+        
+        const retryTimeout = setTimeout(() => {
+          if (socketRef.current?.readyState === WebSocket.CLOSED || socketRef.current?.readyState === WebSocket.CLOSING) {
+            console.log('🔁 Executing WebSocket reconnection attempt...');
+            setConnectionStatus("connecting");
+            setRetryCount(prev => prev + 1); // This will trigger the useEffect
+          }
+        }, delay);
+        
+        retryTimeouts.current.push(retryTimeout);
+      } else if (reconnectAttempts.current >= maxRetries) {
+        console.error('❌ Max reconnection attempts reached. Connection failed permanently.');
+        setConnectionStatus("failed");
+      }
     };
 
     socket.onerror = (error) => {
       console.error("❌ WebSocket error occurred:", error);
       console.log('Socket readyState on error:', socket.readyState);
+      console.log('Error event type:', error.type);
+      console.log('Error timestamp:', new Date().toISOString());
+      
+      // エラーの詳細ログ（仮説5: エラーハンドリング強化）
+      if (error instanceof Event) {
+        console.log('Error event details:', {
+          type: error.type,
+          timeStamp: error.timeStamp,
+          isTrusted: error.isTrusted
+        });
+      }
+      
       clearTimeout(connectionTimeout);
-      setConnectionStatus("failed");
+      
+      // ネットワークエラーの場合はリトライを試行
+      if (reconnectAttempts.current < maxRetries) {
+        console.log('🔄 Network error detected, will attempt reconnection...');
+        setConnectionStatus("connecting");
+      } else {
+        console.error('❌ Max reconnection attempts reached after error.');
+        setConnectionStatus("failed");
+      }
     };
 
     // 接続状態を定期的にチェック
@@ -232,7 +298,15 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       console.error('❌ Failed to create WebSocket connection:', error);
       setConnectionStatus("failed");
     }
-  }, [roomId, displayName]);
+
+    // クリーンアップ関数
+    return () => {
+      clearRetryTimeouts();
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
+    };
+  }, [roomId, displayName, retryCount, clearRetryTimeouts]); // retryCountを追加してリトライを有効化
 
   // Initialize local stream
   useEffect(() => {

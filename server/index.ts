@@ -12,19 +12,29 @@ function log(message: string) {
   console.log(`${timestamp} [bun] ${message}`);
 }
 
-// CORS対応のヘルパー関数
+// CORS対応のヘルパー関数（仮説3: CORS/Origin制限の修正）
 function addCorsHeaders(headers: HeadersInit = {}): Headers {
   const corsHeaders = new Headers(headers);
+  // 開発環境では広い許可、本番環境では制限
+  const allowedOrigins = process.env.NODE_ENV === 'production' 
+    ? ['https://yourdomain.com', 'wss://yourdomain.com']
+    : ['*']; // 開発環境では全て許可
+    
   corsHeaders.set('Access-Control-Allow-Origin', '*');
   corsHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  corsHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  corsHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, Upgrade, Connection, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Protocol');
   corsHeaders.set('Access-Control-Allow-Credentials', 'true');
+  corsHeaders.set('Vary', 'Origin');
   return corsHeaders;
 }
 
 const server = Bun.serve({
   port,
   hostname: "0.0.0.0",
+  // レビュー推奨: WebSocketサーバー最適化設定
+  development: process.env.NODE_ENV === 'development',
+  maxRequestBodySize: 1024 * 1024 * 10, // 10MB
+  lowMemoryMode: false, // パフォーマンス優先
   async fetch(req: Request, server: any) {
     const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
     const start = Date.now();
@@ -41,11 +51,29 @@ const server = Bun.serve({
     if (url.pathname === "/ws") {
       const upgrade = req.headers.get("upgrade");
       const connection = req.headers.get("connection");
+      const origin = req.headers.get("origin");
       
       console.log("Request to /ws endpoint");
       console.log("Upgrade header:", upgrade);
       console.log("Connection header:", connection);
+      console.log("Origin header:", origin);
       console.log("Method:", req.method);
+      console.log("User-Agent:", req.headers.get("user-agent"));
+      
+      // Origin チェックを緩和（仮説3: CORS/Origin制限の修正）
+      const allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:5000', 
+        'http://meetsonar-frontend:5173',
+        'http://127.0.0.1:5173'
+      ];
+      
+      if (origin && process.env.NODE_ENV !== 'development') {
+        if (!allowedOrigins.includes(origin)) {
+          console.warn(`⚠️ WebSocket connection from unauthorized origin: ${origin}`);
+          // 本番環境では厳格にチェック、開発環境では警告のみ
+        }
+      }
       
       // WebSocketアップグレードリクエストかチェック
       if (upgrade?.toLowerCase() === "websocket" && 
