@@ -31,6 +31,10 @@ function addCorsHeaders(headers: HeadersInit = {}): Headers {
 const server = Bun.serve({
   port,
   hostname: "0.0.0.0",
+  // レビュー推奨: WebSocketサーバー最適化設定
+  development: process.env.NODE_ENV === 'development',
+  maxRequestBodySize: 1024 * 1024 * 10, // 10MB
+  lowMemoryMode: false, // パフォーマンス優先
   async fetch(req: Request, server: any) {
     const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
     const start = Date.now();
