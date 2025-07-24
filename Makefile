@@ -71,13 +71,13 @@ shell-db:
 
 # データベース操作
 db-migrate:
-	docker compose exec backend npm run db:migrate
+	docker compose exec backend bun run db:migrate
 
 db-push:
-	docker compose exec backend npm run db:push
+	docker compose exec backend bun run db:push
 
 db-studio:
-	docker compose exec backend npm run db:studio
+	docker compose exec backend bun run db:studio
 
 # クリーンアップ
 clean:
