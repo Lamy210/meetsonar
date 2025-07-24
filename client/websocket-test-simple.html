@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Simple Test</title>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="messages"></div>
+    <button onclick="sendTestMessage()">Send Test Message</button>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+        
+        let socket;
+        
+        function log(message) {
+            console.log(message);
+            messagesDiv.innerHTML += '<br>' + new Date().toLocaleTimeString() + ': ' + message;
+        }
+        
+        function connectWebSocket() {
+            const wsUrl = `ws://localhost:5173/ws`;
+            log('Attempting connection to: ' + wsUrl);
+            
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function(event) {
+                statusDiv.textContent = 'Connected';
+                statusDiv.style.color = 'green';
+                log('✅ WebSocket connected');
+                
+                // Send join-room message
+                const joinMessage = {
+                    type: "join-room",
+                    roomId: "test-room",
+                    participantId: "test-user-" + Date.now(),
+                    payload: { displayName: "TestUser" }
+                };
+                log('Sending join-room message: ' + JSON.stringify(joinMessage));
+                socket.send(JSON.stringify(joinMessage));
+            };
+            
+            socket.onmessage = function(event) {
+                log('📨 Received: ' + event.data);
+            };
+            
+            socket.onclose = function(event) {
+                statusDiv.textContent = 'Disconnected';
+                statusDiv.style.color = 'red';
+                log('❌ Connection closed. Code: ' + event.code + ', Reason: ' + event.reason);
+            };
+            
+            socket.onerror = function(error) {
+                statusDiv.textContent = 'Error';
+                statusDiv.style.color = 'red';
+                log('❌ Error: ' + error);
+            };
+        }
+        
+        function sendTestMessage() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                const message = { type: "test", data: "Hello WebSocket!" };
+                socket.send(JSON.stringify(message));
+                log('Sent test message');
+            } else {
+                log('Socket not connected');
+            }
+        }
+        
+        // Start connection
+        connectWebSocket();
+    </script>
+</body>
+</html>

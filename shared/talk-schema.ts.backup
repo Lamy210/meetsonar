@@ -1,0 +1,95 @@
+import { pgTable, text, timestamp, uuid, boolean, integer } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
+
+// Note: rooms と participants は shared/schema.ts で定義済み
+// ここでは TalkDB 専用テーブルのみ定義する
+
+// 新しいtalkDBシステム - ミーティング管理
+export const meetings = pgTable("meetings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  meetingId: text("meeting_id").notNull().unique(), // ユーザーフレンドリーなID
+  title: text("title").notNull(),
+  description: text("description"),
+  hostId: text("host_id").notNull(),
+  isActive: boolean("is_active").default(true),
+  maxParticipants: integer("max_participants").default(50),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// talkDB - ミーティング別チャット管理
+export const talkMessages = pgTable("talk_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  meetingId: text("meeting_id").notNull().references(() => meetings.meetingId),
+  participantId: text("participant_id").notNull(),
+  displayName: text("display_name").notNull(),
+  message: text("message").notNull(),
+  messageType: text("message_type").default("text"), // text, image, file, system
+  replyToId: uuid("reply_to_id"), // 返信機能
+  isEdited: boolean("is_edited").default(false),
+  isDeleted: boolean("is_deleted").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ミーティング参加者管理
+export const meetingParticipants = pgTable("meeting_participants", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  meetingId: text("meeting_id").notNull().references(() => meetings.meetingId),
+  participantId: text("participant_id").notNull(),
+  displayName: text("display_name").notNull(),
+  role: text("role").default("participant"), // host, moderator, participant
+  joinedAt: timestamp("joined_at").defaultNow(),
+  leftAt: timestamp("left_at"),
+  isOnline: boolean("is_online").default(true),
+});
+
+// リレーション定義
+export const meetingsRelations = relations(meetings, ({ many }) => ({
+  participants: many(meetingParticipants),
+  messages: many(talkMessages),
+}));
+
+export const meetingParticipantsRelations = relations(meetingParticipants, ({ one }) => ({
+  meeting: one(meetings, {
+    fields: [meetingParticipants.meetingId],
+    references: [meetings.meetingId],
+  }),
+}));
+
+export const talkMessagesRelations = relations(talkMessages, ({ one }) => ({
+  meeting: one(meetings, {
+    fields: [talkMessages.meetingId],
+    references: [meetings.meetingId],
+  }),
+  replyTo: one(talkMessages, {
+    fields: [talkMessages.replyToId],
+    references: [talkMessages.id],
+  }),
+}));
+
+// 既存のchat_messagesは互換性のため保持（TalkDB用の別テーブル）
+export const talkChatMessages = pgTable("talk_chat_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  roomId: text("room_id").notNull(),
+  participantId: text("participant_id").notNull(),
+  displayName: text("display_name").notNull(),
+  message: text("message").notNull(),
+  type: text("type").default("text"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// TypeScript型定義
+// Note: Room, Participant は shared/schema.ts から import して使用
+
+export type Meeting = typeof meetings.$inferSelect;
+export type NewMeeting = typeof meetings.$inferInsert;
+
+export type TalkMessage = typeof talkMessages.$inferSelect;
+export type NewTalkMessage = typeof talkMessages.$inferInsert;
+
+export type MeetingParticipant = typeof meetingParticipants.$inferSelect;
+export type NewMeetingParticipant = typeof meetingParticipants.$inferInsert;
+
+export type TalkChatMessage = typeof talkChatMessages.$inferSelect;
+export type NewTalkChatMessage = typeof talkChatMessages.$inferInsert;

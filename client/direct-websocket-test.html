@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct Backend WebSocket Test</title>
+</head>
+<body>
+    <h1>Direct Backend WebSocket Test</h1>
+    <p>Testing WebSocket connection directly to backend (bypassing Vite proxy)</p>
+    <div id="status">Starting...</div>
+    <div id="messages" style="max-height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; font-family: monospace;"></div>
+    
+    <script>
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+        
+        function log(message) {
+            console.log(message);
+            const time = new Date().toLocaleTimeString();
+            messagesDiv.innerHTML += `<br>${time}: ${message}`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // Test direct connection to backend with React-like behavior
+        log('=== Testing Direct Connection to Backend (Port 5000) ===');
+        log('Using same URL as React app: ws://localhost:5000/ws');
+        
+        const wsUrl = 'ws://localhost:5000/ws';
+        log('Connecting to: ' + wsUrl);
+        
+        const socket = new WebSocket(wsUrl);
+        
+        socket.onopen = function(event) {
+            statusDiv.textContent = 'Connected to Backend';
+            statusDiv.style.color = 'green';
+            log('✅ Direct WebSocket connection successful!');
+            log('Socket readyState after open: ' + socket.readyState);
+            
+            // Send join-room message
+            setTimeout(() => {
+                const joinMessage = {
+                    type: "join-room",
+                    roomId: "test-room",
+                    participantId: "direct-test-user-" + Date.now(),
+                    payload: { displayName: "DirectTestUser" }
+                };
+                log('📤 Sending join-room message: ' + JSON.stringify(joinMessage));
+                try {
+                    socket.send(JSON.stringify(joinMessage));
+                    log('✅ Join-room message sent successfully');
+                } catch (error) {
+                    log('❌ Failed to send join-room message: ' + error);
+                }
+            }, 500);
+        };
+        
+        socket.onmessage = function(event) {
+            log('📨 Received from backend: ' + event.data);
+            try {
+                const parsed = JSON.parse(event.data);
+                log('📋 Message type: ' + parsed.type);
+                
+                if (parsed.type === 'connection-established') {
+                    log('✅ Backend connection confirmation received');
+                }
+            } catch (error) {
+                log('❌ Failed to parse message: ' + error);
+            }
+        };
+        
+        socket.onclose = function(event) {
+            statusDiv.textContent = 'Disconnected';
+            statusDiv.style.color = 'red';
+            log(`❌ Connection closed. Code: ${event.code}, Reason: ${event.reason || 'No reason'}`);
+        };
+        
+        socket.onerror = function(error) {
+            statusDiv.textContent = 'Error';
+            statusDiv.style.color = 'red';
+            log('❌ Connection error: ' + JSON.stringify(error));
+        };
+    </script>
+</body>
+</html>

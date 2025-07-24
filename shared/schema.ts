@@ -33,6 +33,16 @@ export const participants = pgTable("participants", {
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 });
 
+export const chatMessages = pgTable("chat_messages", {
+  id: serial("id").primaryKey(),
+  roomId: text("room_id").references(() => rooms.id).notNull(),
+  participantId: text("participant_id").notNull(),
+  displayName: text("display_name").notNull(),
+  message: text("message").notNull(),
+  type: text("type").default("text").notNull(), // text, system
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -47,6 +57,11 @@ export const insertParticipantSchema = createInsertSchema(participants).omit({
   joinedAt: true,
 });
 
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -55,6 +70,9 @@ export type Room = typeof rooms.$inferSelect;
 
 export type InsertParticipant = z.infer<typeof insertParticipantSchema>;
 export type Participant = typeof participants.$inferSelect;
+
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+export type ChatMessage = typeof chatMessages.$inferSelect;
 
 // WebRTC signaling message types
 export const signalingMessageSchema = z.object({
@@ -68,7 +86,9 @@ export const signalingMessageSchema = z.object({
     'participants-list',
     'participant-joined',
     'participant-left',
-    'participant-updated'
+    'participant-updated',
+    'chat-message',
+    'chat-history'
   ]),
   roomId: z.string(),
   participantId: z.string().optional(),

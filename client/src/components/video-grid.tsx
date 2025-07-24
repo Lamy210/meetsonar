@@ -8,6 +8,7 @@ interface VideoGridProps {
   participants: Participant[];
   isVideoEnabled: boolean;
   displayName: string;
+  participantId: string;
 }
 
 interface VideoStreamProps {
@@ -53,8 +54,8 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
   }, [stream, name]);
 
   return (
-    <div className={`relative group ${isMainSpeaker ? "md:col-span-2 lg:col-span-2" : ""} ${isLocal ? "border-2 border-primary" : ""}`}>
-      <div className="video-container">
+    <div className={`relative group ${isMainSpeaker ? "md:col-span-2 lg:col-span-2" : ""} ${isLocal ? "border-2 border-primary" : ""} aspect-video w-full max-h-full`}>
+      <div className="video-container w-full h-full rounded-lg overflow-hidden bg-slate-800">
         {isVideoEnabled && stream ? (
           <video
             ref={videoRef}
@@ -62,7 +63,7 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
             playsInline
             muted={isLocal}
             controls={false}
-            className="w-full h-full object-cover bg-gray-900"
+            className="w-full h-full object-cover bg-gray-900 rounded-lg"
             data-local={isLocal ? "true" : "false"}
             data-remote={!isLocal ? "true" : "false"}
             onLoadedMetadata={() => {
@@ -76,7 +77,7 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
             }}
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center">
+          <div className="w-full h-full bg-gradient-to-br from-slate-700 to-slate-800 flex items-center justify-center rounded-lg">
             <div className="text-center">
               <div className="w-16 h-16 bg-primary rounded-full mx-auto mb-2 flex items-center justify-center">
                 <User className="w-8 h-8 text-white" />
@@ -128,7 +129,7 @@ function VideoStream({ stream, participant, isLocal = false, isMainSpeaker = fal
   );
 }
 
-export default function VideoGrid({ localStream, remoteStreams, participants, isVideoEnabled, displayName }: VideoGridProps) {
+export default function VideoGrid({ localStream, remoteStreams, participants, isVideoEnabled, displayName, participantId }: VideoGridProps) {
   // Debug logging
   console.log("VideoGrid render:", {
     localStreamTracks: localStream?.getTracks().length || 0,
@@ -141,27 +142,27 @@ export default function VideoGrid({ localStream, remoteStreams, participants, is
 
 
   // Filter out self from participants list
-  const remoteParticipants = participants.filter(p => p.connectionId !== displayName);
+  const remoteParticipants = participants.filter(p => p.connectionId !== participantId);
   const totalParticipants = remoteParticipants.length + 1; // +1 for local user
 
   // Determine grid layout based on participant count
   const getGridClass = () => {
     switch (totalParticipants) {
       case 1:
-        return "grid grid-cols-1 place-items-center";
+        return "grid grid-cols-1 place-items-center gap-4";
       case 2:
-        return "grid grid-cols-1 md:grid-cols-2 gap-4";
+        return "grid grid-cols-1 md:grid-cols-2 gap-4 items-center";
       case 3:
       case 4:
-        return "grid grid-cols-1 md:grid-cols-2 gap-4";
+        return "grid grid-cols-1 md:grid-cols-2 gap-4 items-center";
       default:
-        return "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4";
+        return "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-center";
     }
   };
 
   return (
-    <div className="flex-1 p-6">
-      <div className={`${getGridClass()} h-full`}>
+    <div className="w-full h-full flex flex-col">
+      <div className={`${getGridClass()} flex-1 min-h-0`}>
         {/* Local video stream */}
         <VideoStream
           stream={localStream}
@@ -171,12 +172,13 @@ export default function VideoGrid({ localStream, remoteStreams, participants, is
         />
 
         {/* Remote video streams */}
-        {remoteParticipants.map((participant) => {
+        {remoteParticipants.map((participant, index) => {
           // connectionId is non-null after filtering
           const stream = remoteStreams.get(participant.connectionId!);
+          const uniqueKey = participant.id ? `participant-${participant.id}` : `connection-${participant.connectionId}-${index}`;
           return (
             <VideoStream
-              key={participant.connectionId}
+              key={uniqueKey}
               stream={stream}
               participant={participant}
               isLocal={false}

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .log { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Connection Debug</h1>
+    
+    <button onclick="testDirectConnection()">Test Direct Backend (5000)</button>
+    <button onclick="testProxyConnection()">Test Vite Proxy (5173)</button>
+    <button onclick="clearLogs()">Clear Logs</button>
+    
+    <div id="logs"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logs.appendChild(div);
+            console.log(message);
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        function testDirectConnection() {
+            log('Testing direct backend connection: ws://localhost:5000/ws', 'info');
+            
+            const ws = new WebSocket('ws://localhost:5000/ws');
+            
+            ws.onopen = () => {
+                log('✅ Direct backend connection: SUCCESS', 'success');
+                ws.close();
+            };
+            
+            ws.onerror = (error) => {
+                log('❌ Direct backend connection: FAILED', 'error');
+                log(`Error: ${error}`, 'error');
+            };
+            
+            ws.onclose = (event) => {
+                log(`Direct connection closed: ${event.code} ${event.reason}`, 'info');
+            };
+        }
+
+        function testProxyConnection() {
+            log('Testing Vite proxy connection: ws://localhost:5173/ws', 'info');
+            
+            const ws = new WebSocket('ws://localhost:5173/ws');
+            
+            ws.onopen = () => {
+                log('✅ Vite proxy connection: SUCCESS', 'success');
+                ws.close();
+            };
+            
+            ws.onerror = (error) => {
+                log('❌ Vite proxy connection: FAILED', 'error');
+                log(`Error: ${error}`, 'error');
+            };
+            
+            ws.onclose = (event) => {
+                log(`Proxy connection closed: ${event.code} ${event.reason}`, 'info');
+            };
+        }
+
+        // Auto-test on load
+        setTimeout(() => {
+            log('Starting automatic WebSocket tests...', 'info');
+            testDirectConnection();
+            setTimeout(testProxyConnection, 2000);
+        }, 1000);
+    </script>
+</body>
+</html>

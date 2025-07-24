@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import type { IncomingMessage } from "http";
 import { storage } from "./storage";
 import { signalingMessageSchema } from "@shared/schema";
 
@@ -44,45 +45,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
   // WebSocket server for signaling
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  const wss = new WebSocketServer({ 
+    server: httpServer, 
+    path: '/ws',
+    maxPayload: 1024 * 1024, // 1MBの制限
+  });
 
-  wss.on('connection', (ws: WebSocketWithId) => {
-    console.log('New WebSocket connection');
+  // 接続数を監視するためのカウンター
+  let connectionCount = 0;
+  const MAX_CONNECTIONS = 1000;
 
-    ws.on('message', async (data) => {
+  wss.on('connection', (ws: WebSocketWithId, req: IncomingMessage) => {
+    connectionCount++;
+    console.log(`New WebSocket connection (${connectionCount}/${MAX_CONNECTIONS})`);
+
+    // 接続数制限
+    if (connectionCount > MAX_CONNECTIONS) {
+      console.warn('Max connections reached, closing new connection');
+      ws.close(1013, 'Server overloaded');
+      connectionCount--;
+      return;
+    }
+
+    ws.on('message', async (data: Buffer) => {
       try {
         const message = JSON.parse(data.toString());
         const validatedMessage = signalingMessageSchema.parse(message);
-        
+
         switch (validatedMessage.type) {
           case 'join-room':
             await handleJoinRoom(ws, validatedMessage, wss);
             break;
-          
+
           case 'leave-room':
             await handleLeaveRoom(ws, validatedMessage, wss);
             break;
-          
+
           case 'offer':
           case 'answer':
           case 'ice-candidate':
             await handleSignalingMessage(ws, validatedMessage, wss);
             break;
-          
+
           case 'participant-update':
             await handleParticipantUpdate(ws, validatedMessage, wss);
+            break;
+
+          case 'chat-message':
+            await handleChatMessage(ws, validatedMessage, wss);
+            break;
+
+          case 'chat-history':
+            await handleChatHistory(ws, validatedMessage);
             break;
         }
       } catch (error) {
         console.error('WebSocket message error:', error);
-        ws.send(JSON.stringify({ 
-          type: 'error', 
-          message: 'Invalid message format' 
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Invalid message format'
         }));
       }
     });
 
     ws.on('close', async () => {
+      connectionCount--;
+      console.log(`WebSocket connection closed (${connectionCount}/${MAX_CONNECTIONS})`);
+      
       if (ws.participantId && ws.roomId) {
         await handleLeaveRoom(ws, {
           type: 'leave-room',
@@ -92,11 +121,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }, wss);
       }
     });
+
+    ws.on('error', (error: Error) => {
+      console.error('WebSocket error:', error);
+      connectionCount--;
+    });
   });
 
   async function handleJoinRoom(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
     const { roomId, participantId, payload } = message;
-    
+
     ws.participantId = participantId;
     ws.roomId = roomId;
 
@@ -135,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       type: 'participant-joined',
       payload: participant
     }, participantId);
-    
+
     console.log(`Participant ${participantId} joined room ${roomId}`);
   }
 
@@ -150,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       type: 'participant-left',
       payload: { connectionId: participantId }
     }, participantId);
-    
+
     console.log(`Participant ${participantId} left room ${roomId}`);
 
     ws.participantId = undefined;
@@ -169,23 +203,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     // For offers and answers, ensure SDP content exists
-    if ((message.type === 'offer' || message.type === 'answer') && 
-        (!payload.sdp || payload.sdp.trim().length === 0)) {
+    if ((message.type === 'offer' || message.type === 'answer') &&
+      (!payload.sdp || payload.sdp.trim().length === 0)) {
       console.error(`Invalid ${message.type} - missing or empty SDP from ${participantId}`);
       return;
     }
 
     // Forward signaling message to target participant or all participants
     wss.clients.forEach((client: WebSocketWithId) => {
-      if (client.readyState === WebSocket.OPEN && 
-          client.roomId === roomId && 
-          client.participantId !== participantId) {
-        
+      if (client.readyState === WebSocket.OPEN &&
+        client.roomId === roomId &&
+        client.participantId !== participantId) {
+
         // If targetParticipant is specified, only send to that participant
         if (targetParticipant && client.participantId !== targetParticipant) {
           return;
         }
-        
+
         console.log(`Sending ${message.type} to ${client.participantId}`);
         client.send(JSON.stringify({
           type: message.type,
@@ -210,14 +244,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }, participantId);
   }
 
+  async function handleChatMessage(ws: WebSocketWithId, message: any, wss: WebSocketServer) {
+    console.log("=== handleChatMessage called ===");
+    console.log("Full message:", JSON.stringify(message, null, 2));
+
+    const { roomId, participantId, payload } = message;
+
+    console.log("Extracted data:", { roomId, participantId, payload });
+
+    try {
+      // サニタイゼーション - XSS攻撃を防ぐ
+      const sanitizedMessage = payload.message
+        ?.toString()
+        .trim()
+        .slice(0, 1000) // 最大1000文字に制限
+        .replace(/[<>]/g, ''); // HTMLタグを除去
+
+      const sanitizedDisplayName = payload.displayName
+        ?.toString()
+        .trim()
+        .slice(0, 50) // 最大50文字に制限
+        .replace(/[<>]/g, ''); // HTMLタグを除去
+
+      console.log("Sanitized data:", { sanitizedMessage, sanitizedDisplayName });
+
+      if (!sanitizedMessage || !sanitizedDisplayName) {
+        console.warn("❌ Invalid message content:", { sanitizedMessage, sanitizedDisplayName });
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Invalid message content'
+        }));
+        return;
+      }
+
+      // Save chat message to storage
+      console.log("💾 Saving chat message to database...");
+      const chatMessage = await storage.addChatMessage({
+        roomId,
+        participantId: participantId || 'unknown',
+        displayName: sanitizedDisplayName,
+        message: sanitizedMessage,
+        type: payload.type || 'text'
+      });
+
+      // Broadcast chat message to all participants in room
+      broadcastToRoom(wss, roomId, {
+        type: 'chat-message',
+        payload: chatMessage
+      });
+
+      console.log(`Chat message in room ${roomId} from ${sanitizedDisplayName}: ${sanitizedMessage}`);
+    } catch (error) {
+      console.error('Error handling chat message:', error);
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Failed to send chat message'
+      }));
+    }
+  }
+
+  async function handleChatHistory(ws: WebSocketWithId, message: any) {
+    const { roomId } = message;
+
+    try {
+      // Get chat history for the room
+      const chatHistory = await storage.getChatHistory(roomId);
+
+      // Send chat history to requesting participant
+      ws.send(JSON.stringify({
+        type: 'chat-history',
+        payload: chatHistory
+      }));
+    } catch (error) {
+      console.error('Error fetching chat history:', error);
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Failed to fetch chat history'
+      }));
+    }
+  }
+
   function broadcastToRoom(wss: WebSocketServer, roomId: string, message: any, excludeParticipant?: string) {
+    const messageStr = JSON.stringify(message);
+    let sentCount = 0;
+    let errorCount = 0;
+
     wss.clients.forEach((client: WebSocketWithId) => {
-      if (client.readyState === WebSocket.OPEN && 
-          client.roomId === roomId && 
-          client.participantId !== excludeParticipant) {
-        client.send(JSON.stringify(message));
+      if (client.readyState === WebSocket.OPEN &&
+        client.roomId === roomId &&
+        client.participantId !== excludeParticipant) {
+        try {
+          client.send(messageStr);
+          sentCount++;
+        } catch (error) {
+          console.error(`Failed to send message to participant ${client.participantId}:`, error);
+          errorCount++;
+        }
       }
     });
+
+    console.log(`Broadcast to room ${roomId}: sent to ${sentCount} clients, ${errorCount} errors`);
   }
 
   return httpServer;

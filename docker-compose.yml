@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database
   postgres:
@@ -51,9 +49,10 @@ services:
     # Resource limits for compose (applied by docker-compose)
     mem_limit: 512m
     mem_reservation: 256m
+    cpus: 1.0
     # Run Drizzle migrations before starting the dev server
-    command: ["sh", "-c", "npm run db:push && npm run dev"]
-    # 'develop' section removed; live reload via volumes above
+    command: ["sh", "-c", "bun run db:push && bun run dev"]
+  # 'develop' section removed; live reload via volumes above
 
   # Frontend Development Server
   frontend:
@@ -63,7 +62,7 @@ services:
     container_name: meetsonar-frontend
     environment:
       NODE_ENV: development
-      VITE_API_URL: http://localhost:5000
+      VITE_BACKEND_PORT: 5000
     ports:
       - "5173:5173"
     volumes:
@@ -76,10 +75,12 @@ services:
       resources:
         limits:
           memory: 512m
+          cpus: '1.0'
         reservations:
           memory: 256m
-    command: npm run dev:client
-    # Removed custom 'develop' sync section
+          cpus: '0.5'
+    command: bun run dev:client
+# Removed custom 'develop' sync section
 
 networks:
   meetsonar-network:

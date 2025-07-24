@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeetSonar Debug - No React</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1e293b;
+            color: #f1f5f9;
+        }
+        .status {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #22c55e; color: white; }
+        .error { background: #ef4444; color: white; }
+        .info { background: #3b82f6; color: white; }
+        .log {
+            background: #334155;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 MeetSonar Frontend Debug</h1>
+    
+    <div class="status info">
+        <h3>基本接続テスト</h3>
+        <p>Frontend API: <span id="frontend-api-status">テスト中...</span></p>
+        <p>Backend Direct: <span id="backend-direct-status">テスト中...</span></p>
+        <p>WebSocket: <span id="websocket-status">テスト中...</span></p>
+        <p>React Main: <span id="react-main-status">テスト中...</span></p>
+    </div>
+
+    <div class="status info">
+        <h3>手動テスト</h3>
+        <button onclick="testReactLoad()">Reactロード テスト</button>
+        <button onclick="testAPICall()">API呼び出し テスト</button>
+        <button onclick="testWebSocket()">WebSocket テスト</button>
+        <button onclick="clearLogs()">ログクリア</button>
+    </div>
+
+    <div class="status info">
+        <h3>ログ出力</h3>
+        <div id="logs" class="log"></div>
+    </div>
+
+    <script>
+        const logDiv = document.getElementById('logs');
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ef4444' : type === 'success' ? '#22c55e' : '#64748b';
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateStatus(elementId, status, success) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = success ? `✅ ${status}` : `❌ ${status}`;
+        }
+
+        function clearLogs() {
+            logDiv.innerHTML = '';
+        }
+
+        // 基本接続テスト
+        async function testBasicConnections() {
+            log('基本接続テストを開始します...');
+            
+            // Frontend API Test
+            try {
+                const response = await fetch('/api/rooms');
+                if (response.ok) {
+                    updateStatus('frontend-api-status', '正常', true);
+                    log('Frontend API: 正常', 'success');
+                } else {
+                    updateStatus('frontend-api-status', `エラー ${response.status}`, false);
+                    log(`Frontend API: エラー ${response.status}`, 'error');
+                }
+            } catch (error) {
+                updateStatus('frontend-api-status', '接続エラー', false);
+                log(`Frontend API: ${error.message}`, 'error');
+            }
+
+            // Backend Direct Test
+            try {
+                const response = await fetch('http://localhost:5000/api/rooms');
+                if (response.ok) {
+                    updateStatus('backend-direct-status', '正常', true);
+                    log('Backend Direct: 正常', 'success');
+                } else {
+                    updateStatus('backend-direct-status', `エラー ${response.status}`, false);
+                    log(`Backend Direct: エラー ${response.status}`, 'error');
+                }
+            } catch (error) {
+                updateStatus('backend-direct-status', '接続エラー', false);
+                log(`Backend Direct: ${error.message}`, 'error');
+            }
+
+            // WebSocket Test
+            try {
+                const ws = new WebSocket('ws://localhost:5000');
+                ws.onopen = () => {
+                    updateStatus('websocket-status', '正常', true);
+                    log('WebSocket: 接続成功', 'success');
+                    ws.close();
+                };
+                ws.onerror = () => {
+                    updateStatus('websocket-status', 'エラー', false);
+                    log('WebSocket: 接続エラー', 'error');
+                };
+                ws.onclose = () => {
+                    log('WebSocket: 接続終了');
+                };
+            } catch (error) {
+                updateStatus('websocket-status', '接続エラー', false);
+                log(`WebSocket: ${error.message}`, 'error');
+            }
+
+            // React Main Test
+            try {
+                const response = await fetch('/src/main.tsx');
+                if (response.ok) {
+                    updateStatus('react-main-status', '正常', true);
+                    log('React main.tsx: 読み込み可能', 'success');
+                } else {
+                    updateStatus('react-main-status', `エラー ${response.status}`, false);
+                    log(`React main.tsx: エラー ${response.status}`, 'error');
+                }
+            } catch (error) {
+                updateStatus('react-main-status', '読み込みエラー', false);
+                log(`React main.tsx: ${error.message}`, 'error');
+            }
+        }
+
+        function testReactLoad() {
+            log('React コンポーネントのロードテストを開始...');
+            
+            // Create script element to load React
+            const script = document.createElement('script');
+            script.type = 'module';
+            script.src = '/src/main.tsx';
+            script.onload = () => {
+                log('React main.tsx: スクリプト読み込み成功', 'success');
+            };
+            script.onerror = (error) => {
+                log(`React main.tsx: スクリプトエラー ${error}`, 'error');
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        function testAPICall() {
+            log('API呼び出しテストを開始...');
+            
+            fetch('/api/rooms')
+                .then(response => response.json())
+                .then(data => {
+                    log(`API Response: ${JSON.stringify(data)}`, 'success');
+                })
+                .catch(error => {
+                    log(`API Error: ${error.message}`, 'error');
+                });
+        }
+
+        function testWebSocket() {
+            log('WebSocketテストを開始...');
+            
+            const ws = new WebSocket('ws://localhost:5000');
+            
+            ws.onopen = () => {
+                log('WebSocket: 接続開始', 'success');
+                ws.send(JSON.stringify({
+                    type: 'test',
+                    payload: { message: 'Hello from debug page' }
+                }));
+            };
+            
+            ws.onmessage = (event) => {
+                log(`WebSocket Message: ${event.data}`, 'success');
+            };
+            
+            ws.onerror = (error) => {
+                log(`WebSocket Error: ${error}`, 'error');
+            };
+            
+            ws.onclose = () => {
+                log('WebSocket: 接続終了');
+            };
+            
+            // Close after 3 seconds
+            setTimeout(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                }
+            }, 3000);
+        }
+
+        // Error handling
+        window.addEventListener('error', (event) => {
+            log(`JavaScript Error: ${event.error.message} at ${event.filename}:${event.lineno}`, 'error');
+        });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            log(`Unhandled Promise Rejection: ${event.reason}`, 'error');
+        });
+
+        // Initialize tests
+        testBasicConnections();
+        log('デバッグページが読み込まれました');
+    </script>
+</body>
+</html>
