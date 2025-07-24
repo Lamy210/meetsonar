@@ -2,6 +2,20 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 
+// Environment detection for dynamic target setting
+const getBackendTarget = () => {
+  // Docker環境検知
+  const isDocker = process.env.NODE_ENV === 'development' && 
+                   process.env.DOCKER_ENV === 'true';
+  
+  if (isDocker) {
+    return "http://meetsonar-backend:5000";
+  }
+  
+  // ローカル環境では直接localhost
+  return "http://localhost:5000";
+};
+
 export default defineConfig({
   plugins: [
     react(),
@@ -44,22 +58,79 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        target: "http://meetsonar-backend:5000",
+        target: getBackendTarget(),
         changeOrigin: true,
       },
       "/ws": {
-        target: "http://meetsonar-backend:5000",
+        target: getBackendTarget(),
         ws: true,
         changeOrigin: true,
         secure: false,
-        // 最小限の設定でエラーを回避
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
-            console.log('❌ WebSocket proxy error:', err?.message || 'Unknown error');
+        // WebSocket特有の重要設定（レビュー推奨）
+        timeout: 0,  // 無限タイムアウト
+        followRedirects: false,
+        ignorePath: false,
+        xfwd: true,
+        
+        // 詳細なエラーハンドリング（レビュー推奨）
+        configure: (proxy: any, options: any) => {
+          proxy.on('error', (err: any, req: any, res: any) => {
+            console.error('❌ WebSocket proxy error details:', {
+              message: err.message,
+              code: err?.code,
+              stack: err.stack,
+              url: req?.url,
+              headers: req?.headers
+            });
           });
           
-          proxy.on('proxyReqWs', (proxyReq, req, socket, options, head) => {
-            console.log('🔄 Proxying WebSocket request to backend:', req.url);
+          proxy.on('proxyReqWs', (proxyReq: any, req: any, socket: any, options: any, head: any) => {
+            console.log('🔄 WebSocket handshake request:', {
+              url: req.url,
+              headers: req.headers,
+              upgrade: req.headers.upgrade
+            });
+            
+            // WebSocketハンドシェイクヘッダーの確実な転送（レビュー推奨）
+            proxyReq.setHeader('Connection', 'Upgrade');
+            proxyReq.setHeader('Upgrade', 'websocket');
+            
+            // Originヘッダーの適切な設定
+            if (req.headers.origin) {
+              proxyReq.setHeader('Origin', req.headers.origin);
+            }
+            
+            // 必要なWebSocketヘッダーの保持
+            if (req.headers['sec-websocket-key']) {
+              proxyReq.setHeader('Sec-WebSocket-Key', req.headers['sec-websocket-key']);
+            }
+            if (req.headers['sec-websocket-version']) {
+              proxyReq.setHeader('Sec-WebSocket-Version', req.headers['sec-websocket-version']);
+            }
+            if (req.headers['sec-websocket-protocol']) {
+              proxyReq.setHeader('Sec-WebSocket-Protocol', req.headers['sec-websocket-protocol']);
+            }
+            if (req.headers['sec-websocket-extensions']) {
+              proxyReq.setHeader('Sec-WebSocket-Extensions', req.headers['sec-websocket-extensions']);
+            }
+          });
+          
+          proxy.on('proxyResWs', (proxyRes: any, proxySocket: any, proxyHead: any) => {
+            console.log('📨 WebSocket handshake response:', {
+              statusCode: proxyRes.statusCode,
+              headers: proxyRes.headers
+            });
+          });
+          
+          proxy.on('open', (proxySocket: any) => {
+            console.log('✅ WebSocket connection opened successfully');
+            proxySocket.on('error', (err: any) => {
+              console.error('❌ WebSocket connection error:', err);
+            });
+          });
+          
+          proxy.on('close', (proxyRes: any, proxySocket: any, proxyHead: any) => {
+            console.log('🔒 WebSocket connection closed');
           });
         },
       },
