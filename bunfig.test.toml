@@ -1,0 +1,9 @@
+{
+  "name": "MeetSonar Test Suite",
+  "preload": ["./tests/setup.ts"],
+  "timeout": "30s",
+  "coverage": {
+    "include": ["server/**/*.ts", "client/src/**/*.tsx", "shared/**/*.ts"],
+    "exclude": ["**/*.test.ts", "**/*.spec.ts", "**/node_modules/**"]
+  }
+}

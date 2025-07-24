@@ -1,20 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 export default defineConfig({
   plugins: [
     react(),
-    runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== "production" &&
-      process.env.REPL_ID !== undefined
-      ? [
-        await import("@replit/vite-plugin-cartographer").then((m) =>
-          m.cartographer(),
-        ),
-      ]
-      : []),
   ],
   resolve: {
     alias: {
@@ -43,28 +33,43 @@ export default defineConfig({
       }
     }
   },
-  // 開発サーバー設定
+  // 開発サーバー設定 - パフォーマンス最適化
   server: {
     host: "0.0.0.0",
     port: 5173,
+    // より高速なファイルシステム設定
     fs: {
-      strict: true,
-      deny: ["**/.*"],
+      strict: false, // パフォーマンス向上のため制限を緩和
+      allow: [".."], // 親ディレクトリへのアクセスを許可
     },
     proxy: {
       "/api": {
-        target: "http://backend:5000",
+        target: "http://meetsonar-backend:5000",
         changeOrigin: true,
       },
       "/ws": {
-        target: "ws://backend:5000",
+        target: "http://meetsonar-backend:5000",
         ws: true,
         changeOrigin: true,
+        secure: false,
+        timeout: 0,
+        configure: (proxy, options) => {
+          proxy.on('error', (err, req, res) => {
+            console.log('❌ WebSocket proxy error:', err.message);
+          });
+          proxy.on('proxyReqWs', (proxyReq, req, socket, options, head) => {
+            console.log('🔄 Proxying WebSocket request to backend:', req.url);
+          });
+        },
       },
     },
     hmr: {
-      overlay: false, // エラーオーバーレイを無効化
-      clientPort: 5173
+      overlay: false,
+      port: 24678  // HMRを別ポートに移動してWebSocket衝突を回避
+    },
+    // 監視対象を制限してパフォーマンス向上
+    watch: {
+      ignored: ['**/node_modules/**', '**/dist/**', '**/coverage/**']
     }
   },
   // esbuild設定でソースマップエラーを解決
@@ -76,13 +81,23 @@ export default defineConfig({
   optimizeDeps: {
     esbuildOptions: {
       sourcemap: false,
-      logLevel: 'silent'
+      logLevel: 'error'
     },
-    exclude: ['@tanstack/query-core'],
-    // 依存関係の事前バンドルを強制的に実行
-    force: true
+    // よく使用される依存関係を事前にバンドル
+    include: [
+      'react', 
+      'react-dom', 
+      'react-dom/client',
+      'wouter',
+      'lucide-react'
+    ],
+    // 通常モードで実行（forceを削除）
   },
-  // ログレベルを調整してソースマップエラーを抑制
-  logLevel: 'warn',
-  clearScreen: false
+  // ログレベルを調整
+  logLevel: 'info',
+  clearScreen: false,
+  // デバッグ情報を追加
+  define: {
+    __DEV__: true,
+  },
 });

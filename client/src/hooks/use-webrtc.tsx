@@ -26,7 +26,25 @@ export interface UseWebRTCReturn {
 }
 
 export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn {
+  console.log("=== useWebRTC Hook Initialization ===");
   console.log("useWebRTC - roomId:", roomId, "displayName:", displayName);
+  console.log("useWebRTC - roomId type:", typeof roomId);
+  console.log("useWebRTC - displayName type:", typeof displayName);
+  console.log("useWebRTC - roomId length:", roomId?.length);
+  console.log("useWebRTC - displayName length:", displayName?.length);
+  console.log("useWebRTC - roomId truthy:", !!roomId);
+  console.log("useWebRTC - displayName truthy:", !!displayName);
+  
+  // Early validation
+  if (!roomId || typeof roomId !== 'string' || roomId.length === 0) {
+    console.error("❌ Invalid roomId:", roomId);
+    throw new Error("Invalid roomId provided to useWebRTC");
+  }
+  
+  if (!displayName || typeof displayName !== 'string' || displayName.length === 0) {
+    console.error("❌ Invalid displayName:", displayName);
+    throw new Error("Invalid displayName provided to useWebRTC");
+  }
   
   // Generate a unique session ID for this browser tab/instance
   const sessionId = useRef<string>(`${displayName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
@@ -59,39 +77,68 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
 
   // Initialize WebSocket connection
   useEffect(() => {
-    // 開発環境ではAPIサーバー（port 5000）に接続
-    const apiHost = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    const wsHost = apiHost.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-    const protocol = apiHost.startsWith('https:') ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${wsHost}/ws`;
+    console.log("=== useEffect WebSocket Connection Starting ===");
+    console.log("roomId:", roomId, "displayName:", displayName);
+    
+    // roomId または displayName が無効な場合は早期リターン
+    if (!roomId || !displayName) {
+      console.error("❌ Invalid roomId or displayName", { roomId, displayName });
+      return;
+    }
+    
+    // WebSocket URL の決定
+    const isProduction = import.meta.env.PROD;
+    let wsUrl: string;
+    
+    if (isProduction) {
+      // 本番環境では現在のホストを使用
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      wsUrl = `${protocol}//${window.location.host}/ws`;
+    } else {
+      // 開発環境では直接バックエンドポート（5000）に接続
+      wsUrl = `ws://localhost:5000/ws`;
+    }
 
     console.log('=== WebSocket Connection Debug ===');
-    console.log('API Host:', apiHost);
-    console.log('WS Host:', wsHost);
-    console.log('Protocol:', protocol);
+    console.log('Is Production:', isProduction);
+    console.log('Window Location:', window.location.host);
+    console.log('Window Protocol:', window.location.protocol);
     console.log('Final WebSocket URL:', wsUrl);
     console.log('Room ID:', roomId);
     console.log('Display Name:', displayName);
     console.log('Session ID:', sessionId.current);
+    console.log('Browser WebSocket Support:', !!window.WebSocket);
+    console.log('Current Time:', new Date().toISOString());
 
-    console.log('WebRTC connecting to WebSocket:', wsUrl);
-    const socket = new WebSocket(wsUrl);
-    socketRef.current = socket;
+    console.log('⚡ Attempting WebSocket connection to:', wsUrl);
+    
+    // WebSocket接続前にルーム確認（任意）
+    console.log('🔍 Checking room existence before WebSocket connection...');
+    
+    try {
+      const socket = new WebSocket(wsUrl);
+      socketRef.current = socket;
 
-    // 接続タイムアウトを設定
-    const connectionTimeout = setTimeout(() => {
-      if (socket.readyState === WebSocket.CONNECTING) {
-        console.error('⏰ WebSocket connection timeout');
-        socket.close();
-        setConnectionStatus("failed");
-      }
-    }, 10000); // 10秒タイムアウト
+      // 接続タイムアウトを設定
+      let connectionTimeout: NodeJS.Timeout;
+      let statusInterval: NodeJS.Timeout;
+      
+      connectionTimeout = setTimeout(() => {
+        if (socket.readyState === WebSocket.CONNECTING) {
+          console.error('⏰ WebSocket connection timeout after 10 seconds');
+          console.error('Socket ready state:', socket.readyState);
+          socket.close();
+          setConnectionStatus("failed");
+        }
+      }, 10000); // 10秒タイムアウト
 
-    socket.onopen = () => {
+      socket.onopen = () => {
       console.log('✅ WebSocket connection opened successfully');
+      console.log('Socket readyState after open:', socket.readyState);
       clearTimeout(connectionTimeout);
       setConnectionStatus("connected");
       console.log(`🔗 WebSocket connected to room: ${roomId} with sessionId: ${sessionId.current}`);
+      
       // Join room
       const joinMessage = {
         type: "join-room",
@@ -99,34 +146,62 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         participantId: sessionId.current,
         payload: { displayName }
       };
-      console.log('Sending join-room message:', joinMessage);
-      socket.send(JSON.stringify(joinMessage));
+      
+      console.log('📤 Preparing to send join-room message');
+      console.log('Socket ready state before send:', socket.readyState);
+      console.log('WebSocket.OPEN constant:', WebSocket.OPEN);
+      console.log('Socket === WebSocket.OPEN?', socket.readyState === WebSocket.OPEN);
+      console.log('Join message object:', joinMessage);
+      console.log('Join message JSON:', JSON.stringify(joinMessage));
+      console.log('JSON length:', JSON.stringify(joinMessage).length);
+      
+      if (socket.readyState !== WebSocket.OPEN) {
+        console.error('❌ Cannot send message - WebSocket not open. ReadyState:', socket.readyState);
+        return;
+      }
+      
+      try {
+        console.log('🚀 Calling socket.send()...');
+        socket.send(JSON.stringify(joinMessage));
+        console.log('✅ socket.send() call completed successfully');
+        console.log('Socket ready state after send:', socket.readyState);
+      } catch (error) {
+        console.error('❌ Exception during socket.send():', error);
+        console.error('Error name:', error instanceof Error ? error.name : 'Unknown');
+        console.error('Error message:', error instanceof Error ? error.message : 'Unknown');
+        console.error('Error stack:', error instanceof Error ? error.stack : 'Unknown');
+      }
     };
 
     socket.onmessage = async (event) => {
       try {
+        console.log('📨 Raw WebSocket message received:', event.data);
         const message = JSON.parse(event.data);
-        console.log('📨 WebSocket message received:', message);
+        console.log('� Parsed WebSocket message:', message);
+        console.log('Message type:', message.type);
         await handleSignalingMessage(message);
       } catch (error) {
-        console.error("Failed to parse WebSocket message:", error);
+        console.error("❌ Failed to parse WebSocket message:", error, 'Raw data:', event.data);
       }
     };
 
     socket.onclose = (event) => {
-      console.log('❌ WebSocket connection closed:', event.code, event.reason);
+      console.log('❌ WebSocket connection closed. Code:', event.code, 'Reason:', event.reason);
+      console.log('Was clean:', event.wasClean);
+      console.log('Socket final readyState:', socket.readyState);
       clearTimeout(connectionTimeout);
       setConnectionStatus("disconnected");
     };
 
     socket.onerror = (error) => {
-      console.error("❌ WebSocket error:", error);
+      console.error("❌ WebSocket error occurred:", error);
+      console.log('Socket readyState on error:', socket.readyState);
       clearTimeout(connectionTimeout);
       setConnectionStatus("failed");
     };
 
     // 接続状態を定期的にチェック
-    const statusInterval = setInterval(() => {
+    statusInterval = setInterval(() => {
       if (socket.readyState === WebSocket.CONNECTING) {
         console.log('⏳ WebSocket still connecting...');
       } else if (socket.readyState === WebSocket.OPEN) {
@@ -153,6 +228,10 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
       }
       socket.close();
     };
+    } catch (error) {
+      console.error('❌ Failed to create WebSocket connection:', error);
+      setConnectionStatus("failed");
+    }
   }, [roomId, displayName]);
 
   // Initialize local stream

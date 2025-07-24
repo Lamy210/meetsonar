@@ -12,6 +12,16 @@ function log(message: string) {
   console.log(`${timestamp} [bun] ${message}`);
 }
 
+// CORS対応のヘルパー関数
+function addCorsHeaders(headers: HeadersInit = {}): Headers {
+  const corsHeaders = new Headers(headers);
+  corsHeaders.set('Access-Control-Allow-Origin', '*');
+  corsHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  corsHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  corsHeaders.set('Access-Control-Allow-Credentials', 'true');
+  return corsHeaders;
+}
+
 const server = Bun.serve({
   port,
   hostname: "0.0.0.0",
@@ -19,25 +29,55 @@ const server = Bun.serve({
     const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
     const start = Date.now();
     
+    // OPTIONSリクエスト（プリフライト）の処理
+    if (req.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: addCorsHeaders()
+      });
+    }
+    
     // WebSocketアップグレード処理
     if (url.pathname === "/ws") {
-      console.log("WebSocket upgrade request received");
-      console.log("Headers:", Object.fromEntries(req.headers.entries()));
+      const upgrade = req.headers.get("upgrade");
+      const connection = req.headers.get("connection");
       
-      const success = server.upgrade(req, {
-        data: {
-          participantId: undefined,
-          roomId: undefined,
-        },
-      });
+      console.log("Request to /ws endpoint");
+      console.log("Upgrade header:", upgrade);
+      console.log("Connection header:", connection);
+      console.log("Method:", req.method);
       
-      if (!success) {
-        console.error("WebSocket upgrade failed");
-        return new Response("WebSocket upgrade failed", { status: 400 });
+      // WebSocketアップグレードリクエストかチェック
+      if (upgrade?.toLowerCase() === "websocket" && 
+          connection?.toLowerCase().includes("upgrade")) {
+        console.log("WebSocket upgrade request received");
+        console.log("Headers:", Object.fromEntries(req.headers.entries()));
+        
+        const success = server.upgrade(req, {
+          data: {
+            participantId: undefined,
+            roomId: undefined,
+          },
+        });
+        
+        if (!success) {
+          console.error("WebSocket upgrade failed");
+          return new Response("WebSocket upgrade failed", { status: 400 });
+        }
+        
+        console.log("WebSocket upgrade successful");
+        return undefined;
+      } else {
+        // 通常のHTTPリクエストの場合
+        console.log("Non-WebSocket request to /ws endpoint");
+        return new Response("WebSocket endpoint. Use WebSocket protocol.", { 
+          status: 426,
+          headers: addCorsHeaders({
+            "Upgrade": "websocket",
+            "Connection": "Upgrade"
+          })
+        });
       }
-      
-      console.log("WebSocket upgrade successful");
-      return undefined;
     }
     
     // API routes handling
@@ -48,7 +88,7 @@ const server = Bun.serve({
           const roomId = url.pathname.split('/')[3];
           const participants = await storage.getParticipants(roomId);
           response = new Response(JSON.stringify(participants), {
-            headers: { 'Content-Type': 'application/json' }
+            headers: addCorsHeaders({ 'Content-Type': 'application/json' })
           });
         } else if (url.pathname.match(/^\/api\/rooms\/([^\/]+)$/) && req.method === 'GET') {
           const roomId = url.pathname.split('/')[3];
@@ -56,11 +96,11 @@ const server = Bun.serve({
           if (!room) {
             response = new Response(JSON.stringify({ error: "Room not found" }), {
               status: 404,
-              headers: { 'Content-Type': 'application/json' }
+              headers: addCorsHeaders({ 'Content-Type': 'application/json' })
             });
           } else {
             response = new Response(JSON.stringify(room), {
-              headers: { 'Content-Type': 'application/json' }
+              headers: addCorsHeaders({ 'Content-Type': 'application/json' })
             });
           }
         } else if (url.pathname === '/api/rooms' && req.method === 'POST') {
@@ -68,13 +108,13 @@ const server = Bun.serve({
           const room = await storage.createRoom(body);
           response = new Response(JSON.stringify(room), {
             status: 201,
-            headers: { 'Content-Type': 'application/json' }
+            headers: addCorsHeaders({ 'Content-Type': 'application/json' })
           });
         } else if (url.pathname.match(/^\/api\/rooms\/([^\/]+)\/messages$/) && req.method === 'GET') {
           const roomId = url.pathname.split('/')[3];
           const messages = await storage.getChatHistory(roomId);
           response = new Response(JSON.stringify(messages), {
-            headers: { 'Content-Type': 'application/json' }
+            headers: addCorsHeaders({ 'Content-Type': 'application/json' })
           });
         } else if (url.pathname.match(/^\/api\/rooms\/([^\/]+)\/messages$/) && req.method === 'POST') {
           const roomId = url.pathname.split('/')[3];
@@ -85,17 +125,17 @@ const server = Bun.serve({
           });
           response = new Response(JSON.stringify(message), {
             status: 201,
-            headers: { 'Content-Type': 'application/json' }
+            headers: addCorsHeaders({ 'Content-Type': 'application/json' })
           });
         } else if (url.pathname === '/api/rooms' && req.method === 'GET') {
           // Room list endpoint if needed
           response = new Response(JSON.stringify([]), {
-            headers: { 'Content-Type': 'application/json' }
+            headers: addCorsHeaders({ 'Content-Type': 'application/json' })
           });
         } else {
           response = new Response(JSON.stringify({ error: "Not found" }), {
             status: 404,
-            headers: { 'Content-Type': 'application/json' }
+            headers: addCorsHeaders({ 'Content-Type': 'application/json' })
           });
         }
         
@@ -126,7 +166,7 @@ const server = Bun.serve({
           details: error instanceof Error ? error.message : String(error)
         }), {
           status: 500,
-          headers: { 'Content-Type': 'application/json' }
+          headers: addCorsHeaders({ 'Content-Type': 'application/json' })
         });
         
         const duration = Date.now() - start;
@@ -137,7 +177,10 @@ const server = Bun.serve({
     }
     
     // 静的ファイルまたはフロントエンド
-    return new Response("Not Found", { status: 404 });
+    return new Response("Not Found", { 
+      status: 404,
+      headers: addCorsHeaders()
+    });
   },
   websocket: createWebSocketHandler(),
 });

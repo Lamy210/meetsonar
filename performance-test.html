@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MeetSonar Performance Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; }
+        .error { background: #ffe6e6; }
+        .success { background: #e6ffe6; }
+    </style>
+</head>
+<body>
+    <h1>MeetSonar Frontend Performance Test</h1>
+    
+    <button onclick="testPageLoad()">Test Page Load Speed</button>
+    <button onclick="testResourceSizes()">Test Resource Sizes</button>
+    <button onclick="testNetworkLatency()">Test Network Latency</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const resultsDiv = document.getElementById('results');
+        
+        function addResult(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.innerHTML = new Date().toLocaleTimeString() + ': ' + message;
+            resultsDiv.appendChild(div);
+        }
+        
+        async function testPageLoad() {
+            addResult('Starting page load test...');
+            
+            const startTime = performance.now();
+            
+            try {
+                const response = await fetch('http://localhost:5173');
+                const endTime = performance.now();
+                const loadTime = endTime - startTime;
+                
+                addResult(`Frontend HTML response time: ${loadTime.toFixed(2)}ms`);
+                addResult(`Response status: ${response.status}`);
+                addResult(`Content length: ${response.headers.get('content-length') || 'unknown'} bytes`);
+                
+                // Test main.tsx loading
+                const mainStartTime = performance.now();
+                const mainResponse = await fetch('http://localhost:5173/src/main.tsx');
+                const mainEndTime = performance.now();
+                const mainLoadTime = mainEndTime - mainStartTime;
+                
+                addResult(`Main TypeScript file load time: ${mainLoadTime.toFixed(2)}ms`);
+                
+            } catch (error) {
+                addResult(`Error: ${error.message}`, true);
+            }
+        }
+        
+        async function testResourceSizes() {
+            addResult('Testing resource sizes...');
+            
+            try {
+                // Test Vite client
+                const viteResponse = await fetch('http://localhost:5173/@vite/client');
+                addResult(`Vite client size: ${viteResponse.headers.get('content-length') || 'unknown'} bytes`);
+                
+                // Test React refresh
+                const refreshResponse = await fetch('http://localhost:5173/@react-refresh');
+                addResult(`React refresh size: ${refreshResponse.headers.get('content-length') || 'unknown'} bytes`);
+                
+            } catch (error) {
+                addResult(`Resource test error: ${error.message}`, true);
+            }
+        }
+        
+        async function testNetworkLatency() {
+            addResult('Testing network latency...');
+            
+            const tests = 5;
+            let totalTime = 0;
+            
+            for (let i = 0; i < tests; i++) {
+                const start = performance.now();
+                await fetch('http://localhost:5173', { method: 'HEAD' });
+                const end = performance.now();
+                totalTime += (end - start);
+            }
+            
+            const avgLatency = totalTime / tests;
+            addResult(`Average latency over ${tests} requests: ${avgLatency.toFixed(2)}ms`);
+            
+            if (avgLatency > 100) {
+                addResult('High latency detected! Possible causes: Docker overhead, resource contention, or network issues', true);
+            } else {
+                addResult('Latency is within acceptable range');
+            }
+        }
+        
+        // Automatically run tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testPageLoad();
+                setTimeout(() => {
+                    testResourceSizes();
+                    setTimeout(() => {
+                        testNetworkLatency();
+                    }, 1000);
+                }, 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

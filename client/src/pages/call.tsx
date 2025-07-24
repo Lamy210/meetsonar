@@ -14,6 +14,18 @@ import TabChat from "@/components/tab-chat";
 export default function Call() {
   const { roomId } = useParams();
   const [, setLocation] = useLocation();
+  
+  // roomIdが存在しない場合は早期リターン
+  if (!roomId) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-center">
+          <h1 className="text-2xl font-bold mb-4">Room not found</h1>
+          <p className="text-slate-400">Invalid room ID provided.</p>
+        </div>
+      </div>
+    );
+  }
   const [showSettings, setShowSettings] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [connectionQuality, setConnectionQuality] = useState("HD");
@@ -24,16 +36,15 @@ export default function Call() {
 
   // URLパラメータから表示名を取得、またはlocalStorageを使用
   const urlParams = new URLSearchParams(window.location.search);
-  const nameFromUrl = urlParams.get("name");
+  const nameFromUrl = urlParams.get("displayName") || urlParams.get("name");
+  console.log("URL params:", Object.fromEntries(urlParams.entries()));
+  console.log("Name from URL:", nameFromUrl);
+  
   if (nameFromUrl) {
     localStorage.setItem("displayName", nameFromUrl);
   }
   const displayName = localStorage.getItem("displayName") || `User-${Math.random().toString(36).substr(2, 5)}`;
-
-  console.log("Call page - roomId from URL:", roomId);
-  console.log("Call page - displayName:", displayName);
-  console.log("Call page - connectionStatus:", connectionStatus);
-  console.log("Call page - participantId:", participantId);
+  console.log("Final displayName:", displayName);
 
   const {
     participants,
@@ -57,6 +68,11 @@ export default function Call() {
     downloadRecording,
     leaveCall,
   } = useWebRTC(roomId!, displayName);
+
+  console.log("Call page - roomId from URL:", roomId);
+  console.log("Call page - displayName:", displayName);
+  console.log("Call page - connectionStatus:", connectionStatus);
+  console.log("Call page - participantId:", participantId);
 
   // const { isConnected } = useWebSocket("/ws", roomId!); // 重複削除
 
@@ -194,11 +210,11 @@ export default function Call() {
           <Tabs defaultValue="participants" value={currentTab} onValueChange={setCurrentTab} className="w-full h-full flex flex-col min-h-0">
             <div className="p-4 border-b border-slate-700/50 flex-shrink-0">
               <TabsList className="grid w-full grid-cols-2 bg-slate-800">
-                <TabsTrigger value="participants" className="text-sm">
+                <TabsTrigger value="participants" className="text-sm" data-testid="participant-tab">
                   <Users className="w-4 h-4 mr-2" />
                   Participants ({participants.length})
                 </TabsTrigger>
-                <TabsTrigger value="chat" className="text-sm relative">
+                <TabsTrigger value="chat" className="text-sm relative" data-testid="chat-tab">
                   <MessageSquare className="w-4 h-4 mr-2" />
                   Chat
                   {unreadChatCount > 0 && (
@@ -208,7 +224,7 @@ export default function Call() {
                   )}
                 </TabsTrigger>
               </TabsList>
-            </div>            <TabsContent value="participants" className="flex-1 flex flex-col mt-0 overflow-hidden">
+            </div>            <TabsContent value="participants" className="flex-1 flex flex-col mt-0 overflow-hidden" data-testid="participant-list">
               {/* 参加者リストヘッダー */}
               <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-800/30">
                 <div className="flex items-center justify-between">
@@ -228,16 +244,17 @@ export default function Call() {
                 <div className="space-y-2">
                   {participants.length === 0 ? (
                     <div className="text-center text-slate-400 py-8">
-                      <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">参加者を待っています...</p>
-                      <p className="text-xs mt-1">ルームリンクを共有して他の人を招待しましょう</p>
                     </div>
                   ) : (
-                    participants.map((participant, index) => (
+                    participants.map((participant) => (
                       <ParticipantItem
-                        key={participant.id || participant.connectionId || `participant-${index}`}
+                        key={participant.connectionId}
                         participant={participant}
                         isCurrentUser={participant.connectionId === participantId}
+                        isLocal={participant.connectionId === participantId}
+                        remoteStream={participant.connectionId ? remoteStreams.get(participant.connectionId) : undefined}
                       />
                     ))
                   )}
@@ -247,8 +264,8 @@ export default function Call() {
 
             <TabsContent value="chat" className="flex-1 flex flex-col mt-0 overflow-hidden">
               <TabChat
-                roomId={roomId!}
-                participantId={participantId} // ユニークなセッションIDを使用
+                roomId={roomId}
+                participantId={participantId}
                 displayName={displayName}
                 connectionStatus={connectionStatus}
                 sendMessage={sendChatMessage}
@@ -256,55 +273,40 @@ export default function Call() {
                 requestChatHistory={requestChatHistory}
               />
             </TabsContent>
-
-            {/* Quick Actions */}
-            <div className="border-t border-slate-700/50 p-4 flex-shrink-0">
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => setShowInvite(true)}
-                  className="flex-1 bg-primary hover:bg-primary/90 text-white"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Invite
-                </Button>
-                <Button variant="outline" className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700">
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Record
-                </Button>
-              </div>
-            </div>
           </Tabs>
         </div>
       </div>
 
       {/* Call Controls */}
-      <CallControls
-        isAudioEnabled={isAudioEnabled}
-        isVideoEnabled={isVideoEnabled}
-        isScreenSharing={isScreenSharing}
-        isRecording={isRecording}
-        recordedChunks={recordedChunks}
-        onToggleAudio={toggleAudio}
-        onToggleVideo={toggleVideo}
-        onToggleScreenShare={toggleScreenShare}
-        onStartRecording={startRecording}
-        onStopRecording={stopRecording}
-        onDownloadRecording={downloadRecording}
-        onOpenSettings={() => setShowSettings(true)}
-        onLeaveCall={handleLeaveCall}
-        connectionQuality={connectionQuality}
-      />
+      <div className="flex-shrink-0 p-6 bg-slate-900/50 border-t border-slate-700/50">
+        <CallControls
+          isAudioEnabled={isAudioEnabled}
+          isVideoEnabled={isVideoEnabled}
+          isScreenSharing={isScreenSharing}
+          isRecording={isRecording}
+          onToggleAudio={toggleAudio}
+          onToggleVideo={toggleVideo}
+          onToggleScreenShare={toggleScreenShare}
+          onStartRecording={startRecording}
+          onStopRecording={stopRecording}
+          onLeaveCall={handleLeaveCall}
+          onDownloadRecording={downloadRecording}
+          recordedChunks={recordedChunks}
+          onOpenSettings={() => setShowSettings(true)}
+          connectionQuality={connectionQuality}
+        />
+      </div>
 
       {/* Modals */}
-      <SettingsModal
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
+      <SettingsModal 
+        isOpen={showSettings} 
+        onClose={() => setShowSettings(false)} 
       />
-
-      <InviteModal
-        isOpen={showInvite}
+      
+      <InviteModal 
+        isOpen={showInvite} 
         onClose={() => setShowInvite(false)}
-        roomId={roomId!}
+        roomId={roomId}
       />
     </div>
   );

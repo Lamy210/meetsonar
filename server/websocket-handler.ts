@@ -11,20 +11,43 @@ const connections = new Map<string, any>();
 export function createWebSocketHandler() {
   return {
     open(ws: any) {
-      console.log("New WebSocket connection");
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] 🔗 New WebSocket connection opened`);
+      console.log(`[${timestamp}] Connection count: ${connections.size + 1}`);
+      
+      // セッションIDを生成
+      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      ws.data = { sessionId };
+      console.log(`[${timestamp}] Assigned session ID: ${sessionId}`);
+      
+      // Welcome message removed to test basic connection stability
+      console.log(`[${timestamp}] ✅ WebSocket connection ready - waiting for client messages`);
+      console.log(`[${timestamp}] WebSocket object type:`, typeof ws);
+      console.log(`[${timestamp}] WebSocket readyState:`, ws.readyState);
     },
 
     message(ws: any, message: string | Buffer) {
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] 🚨 MESSAGE HANDLER CALLED!`);
+      console.log(`[${timestamp}] Message type: ${typeof message}`);
+      console.log(`[${timestamp}] Message constructor: ${message.constructor.name}`);
+      console.log(`[${timestamp}] Message length: ${message.length}`);
+      
       try {
         const data = typeof message === 'string' ? message : message.toString();
+        console.log(`[${timestamp}] 📨 Raw message received (length: ${data.length}): ${data.substring(0, 200)}${data.length > 200 ? '...' : ''}`);
+        
         const parsed = JSON.parse(data);
+        console.log(`[${timestamp}] 📋 Parsed message type: ${parsed.type}`);
         
         // Validate message format
         const validatedMessage = signalingMessageSchema.parse(parsed);
+        console.log(`[${timestamp}] ✅ Message validated: type=${validatedMessage.type}, roomId=${validatedMessage.roomId}`);
         
         // Handle different message types
         switch (validatedMessage.type) {
           case 'join-room':
+            console.log(`[${timestamp}] 🚪 Processing join-room request`);
             handleJoinRoom(ws, validatedMessage);
             break;
           case 'leave-room':
@@ -42,10 +65,11 @@ export function createWebSocketHandler() {
             handleSignalingMessage(ws, validatedMessage);
             break;
           default:
-            console.log('Unknown message type:', validatedMessage.type);
+            console.log(`[${timestamp}] ❓ Unknown message type: ${validatedMessage.type}`);
         }
       } catch (error) {
-        console.error('Error processing WebSocket message:', error);
+        console.error(`[${timestamp}] ❌ Error processing WebSocket message:`, error);
+        console.error(`[${timestamp}] Error stack:`, error instanceof Error ? error.stack : 'No stack');
         ws.send(JSON.stringify({ 
           type: 'error', 
           message: 'Invalid message format' 
@@ -53,11 +77,16 @@ export function createWebSocketHandler() {
       }
     },
 
-    close(ws: any) {
+    close(ws: any, code?: number, reason?: string) {
+      const timestamp = new Date().toISOString();
       const data: WebSocketData = ws.data || {};
+      console.log(`[${timestamp}] 🔌 WebSocket connection closed`);
+      console.log(`[${timestamp}] Close code: ${code}, reason: ${reason || 'No reason provided'}`);
+      console.log(`[${timestamp}] Session data:`, data);
+      
       if (data.participantId && data.roomId) {
         connections.delete(data.participantId);
-        console.log(`WebSocket connection closed for participant ${data.participantId}`);
+        console.log(`[${timestamp}] 👋 Participant ${data.participantId} disconnected from room ${data.roomId}`);
         
         // Remove participant from database and notify others
         handleLeaveRoom(ws, {
@@ -66,13 +95,19 @@ export function createWebSocketHandler() {
           participantId: data.participantId,
           payload: {}
         }).catch(error => {
-          console.error('Error during automatic cleanup on WebSocket close:', error);
+          console.error(`[${timestamp}] Error during automatic cleanup:`, error);
         });
       }
+      
+      console.log(`[${timestamp}] Active connections remaining: ${connections.size}`);
     },
 
     error(ws: any, error: Error) {
-      console.error('WebSocket error:', error);
+      const timestamp = new Date().toISOString();
+      console.error(`[${timestamp}] ❌ WebSocket error:`, error.message);
+      console.error(`[${timestamp}] Error stack:`, error.stack);
+      const data: WebSocketData = ws.data || {};
+      console.error(`[${timestamp}] Session data at error:`, data);
     }
   };
 }
@@ -81,14 +116,17 @@ async function handleJoinRoom(ws: any, message: any) {
   const { roomId, participantId, payload } = message;
   
   try {
-    // まずルームが存在するか確認
-    const room = await storage.getRoom(roomId);
+    // ルームが存在するか確認、存在しない場合は作成
+    let room = await storage.getRoom(roomId);
     if (!room) {
-      ws.send(JSON.stringify({ 
-        type: 'error', 
-        message: `Room ${roomId} not found` 
-      }));
-      return;
+      console.log(`Creating room ${roomId} automatically`);
+      room = await storage.createRoom({
+        id: roomId,
+        name: `Room ${roomId}`,
+        isActive: true,
+        maxParticipants: 10
+      });
+      console.log(`Room ${roomId} created successfully:`, room);
     }
     
     // Store connection

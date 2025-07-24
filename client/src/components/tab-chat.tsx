@@ -107,7 +107,7 @@ export default function TabChat({ roomId, participantId, displayName, connection
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-900 min-h-[400px]">
+        <div className="flex flex-col h-full bg-slate-900 min-h-[400px]" data-testid="chat-container">
             {/* デバッグ情報表示 */}
             <div className="px-2 py-1 bg-yellow-600 text-black text-xs">
                 DEBUG: TabChat rendered - Messages: {safeMessages.length} | Status: {connectionStatus}
@@ -133,7 +133,7 @@ export default function TabChat({ roomId, participantId, displayName, connection
                         >
                             更新
                         </button>
-                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} data-testid="connection-status"></div>
                     </div>
                 </div>
             </div>
@@ -141,7 +141,7 @@ export default function TabChat({ roomId, participantId, displayName, connection
             {/* Messages Area */}
             <div className="flex-1 flex flex-col">
                 <ScrollArea className="flex-1">
-                    <div className="p-4">
+                    <div className="p-4" data-testid="chat-messages">
                         {/* デバッグ情報 */}
                         <div className="mb-4 p-2 bg-blue-900 text-blue-200 text-xs rounded">
                             Messages Count: {safeMessages.length} | 
@@ -193,6 +193,7 @@ export default function TabChat({ roomId, participantId, displayName, connection
                                             className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} ${
                                                 showAvatar || index === 0 ? 'mt-4' : 'mt-1'
                                             }`}
+                                            data-testid={isOwnMessage ? "chat-message-own" : "chat-message-other"}
                                         >
                                             {/* 左側のアバター（相手のメッセージのみ） */}
                                             <div className="flex flex-col items-end mr-2">
@@ -260,6 +261,7 @@ export default function TabChat({ roomId, participantId, displayName, connection
                             placeholder="メッセージを入力..."
                             className="bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-400 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             disabled={!isConnected}
+                            data-testid="chat-input"
                         />
                     </div>
                     <Button
@@ -267,6 +269,7 @@ export default function TabChat({ roomId, participantId, displayName, connection
                         size="sm"
                         disabled={!newMessage.trim() || !isConnected}
                         className="bg-blue-500 hover:bg-blue-600 text-white rounded-xl px-4 py-3 shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50"
+                        data-testid="send-button"
                     >
                         <Send className="w-4 h-4" />
                     </Button>

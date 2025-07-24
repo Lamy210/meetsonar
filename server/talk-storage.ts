@@ -196,7 +196,7 @@ export class TalkStorage {
       participantCount: participants.length,
       messageCount: messages.length,
       lastActivity: messages.length > 0 ? 
-        Math.max(...messages.map(m => new Date(m.createdAt).getTime())) : 
+        Math.max(...messages.map((m: any) => new Date(m.createdAt).getTime())) : 
         new Date(meeting.createdAt).getTime()
     };
   }

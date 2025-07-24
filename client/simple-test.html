@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeetSonar - Simple Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1e293b;
+            color: #f1f5f9;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        .status {
+            background: #334155;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .button:hover {
+            background: #2563eb;
+        }
+        #root {
+            border: 2px dashed #64748b;
+            padding: 20px;
+            margin: 20px 0;
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 MeetSonar Simple Test</h1>
+        
+        <div class="status">
+            <h3>サイト状況確認</h3>
+            <p>このページが表示されている場合、Viteサーバーは正常に動作しています。</p>
+            <p>React アプリケーションのテストを行います...</p>
+        </div>
+
+        <div class="status">
+            <h3>React Root Element</h3>
+            <div id="root">
+                <p>React アプリケーションがここに読み込まれるべきです...</p>
+            </div>
+        </div>
+
+        <div class="status">
+            <h3>ナビゲーション</h3>
+            <a href="/" class="button">メインアプリに戻る</a>
+            <a href="/debug-advanced.html" class="button">詳細デバッグ</a>
+            <a href="/room/test?name=TestUser" class="button">テストルーム</a>
+        </div>
+
+        <div class="status">
+            <h3>システム情報</h3>
+            <p>User Agent: <span id="user-agent"></span></p>
+            <p>Current URL: <span id="current-url"></span></p>
+            <p>Timestamp: <span id="timestamp"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // Basic info
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        document.getElementById('current-url').textContent = window.location.href;
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+
+        // Test if React can load
+        setTimeout(() => {
+            const script = document.createElement('script');
+            script.type = 'module';
+            script.src = '/src/main.tsx';
+            script.onload = () => {
+                console.log('React script loaded successfully');
+                const rootElement = document.getElementById('root');
+                setTimeout(() => {
+                    if (rootElement.children.length > 1) {
+                        rootElement.style.borderColor = '#22c55e';
+                        rootElement.innerHTML = '<p style="color: #22c55e;">✅ React アプリケーションが正常に読み込まれました！</p>' + rootElement.innerHTML;
+                    } else {
+                        rootElement.style.borderColor = '#ef4444';
+                        rootElement.innerHTML = '<p style="color: #ef4444;">❌ React アプリケーションの読み込みに失敗しました</p>' + rootElement.innerHTML;
+                    }
+                }, 2000);
+            };
+            script.onerror = () => {
+                console.error('React script failed to load');
+                const rootElement = document.getElementById('root');
+                rootElement.style.borderColor = '#ef4444';
+                rootElement.innerHTML = '<p style="color: #ef4444;">❌ React スクリプトの読み込みに失敗しました</p>' + rootElement.innerHTML;
+            };
+            document.head.appendChild(script);
+        }, 1000);
+
+        // Error logging
+        window.addEventListener('error', (event) => {
+            console.error('JavaScript Error:', event.error);
+            document.body.innerHTML += `<div style="background: #ef4444; padding: 10px; margin: 10px 0; border-radius: 5px;">
+                <strong>JavaScript Error:</strong> ${event.error.message}<br>
+                <strong>File:</strong> ${event.filename}:${event.lineno}
+            </div>`;
+        });
+
+        console.log('Simple test page loaded');
+    </script>
+</body>
+</html>

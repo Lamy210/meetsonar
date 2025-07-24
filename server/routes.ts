@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
+import type { IncomingMessage } from "http";
 import { storage } from "./storage";
 import { signalingMessageSchema } from "@shared/schema";
 
@@ -54,7 +55,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   let connectionCount = 0;
   const MAX_CONNECTIONS = 1000;
 
-  wss.on('connection', (ws: WebSocketWithId, req) => {
+  wss.on('connection', (ws: WebSocketWithId, req: IncomingMessage) => {
     connectionCount++;
     console.log(`New WebSocket connection (${connectionCount}/${MAX_CONNECTIONS})`);
 
@@ -66,7 +67,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
 
-    ws.on('message', async (data) => {
+    ws.on('message', async (data: Buffer) => {
       try {
         const message = JSON.parse(data.toString());
         const validatedMessage = signalingMessageSchema.parse(message);
@@ -121,7 +122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    ws.on('error', (error) => {
+    ws.on('error', (error: Error) => {
       console.error('WebSocket error:', error);
       connectionCount--;
     });

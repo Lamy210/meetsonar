@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct WebSocket Test</title>
+</head>
+<body>
+    <h1>Direct WebSocket Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="messages" style="max-height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; font-family: monospace;"></div>
+    <button onclick="sendTestMessage()">Send Test Message</button>
+    <button onclick="testViteProxy()">Test via Vite Proxy</button>
+    <button onclick="testDirect()">Test Direct Connection</button>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+        
+        let socket;
+        
+        function log(message) {
+            console.log(message);
+            const time = new Date().toLocaleTimeString();
+            messagesDiv.innerHTML += `<br>${time}: ${message}`;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function connectWebSocket(url) {
+            if (socket) {
+                socket.close();
+            }
+            
+            log('Attempting connection to: ' + url);
+            statusDiv.textContent = 'Connecting...';
+            statusDiv.style.color = 'orange';
+            
+            socket = new WebSocket(url);
+            
+            socket.onopen = function(event) {
+                statusDiv.textContent = 'Connected';
+                statusDiv.style.color = 'green';
+                log('✅ WebSocket connected successfully');
+                
+                // Send join-room message immediately after connection
+                setTimeout(() => {
+                    const joinMessage = {
+                        type: "join-room",
+                        roomId: "test-room",
+                        participantId: "test-user-" + Date.now(),
+                        payload: { displayName: "TestUser" }
+                    };
+                    log('Sending join-room message: ' + JSON.stringify(joinMessage));
+                    socket.send(JSON.stringify(joinMessage));
+                }, 100);
+            };
+            
+            socket.onmessage = function(event) {
+                log('📨 Received message: ' + event.data);
+                try {
+                    const parsed = JSON.parse(event.data);
+                    log('📋 Parsed message type: ' + parsed.type);
+                    if (parsed.type === 'connection-established') {
+                        log('✅ Connection established confirmation received');
+                    }
+                } catch (error) {
+                    log('❌ Failed to parse received message: ' + error);
+                }
+            };
+            
+            socket.onclose = function(event) {
+                statusDiv.textContent = 'Disconnected';
+                statusDiv.style.color = 'red';
+                log(`❌ Connection closed. Code: ${event.code}, Reason: ${event.reason || 'No reason provided'}`);
+            };
+            
+            socket.onerror = function(error) {
+                statusDiv.textContent = 'Error';
+                statusDiv.style.color = 'red';
+                log('❌ Error: ' + JSON.stringify(error));
+            };
+        }
+        
+        function sendTestMessage() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                const message = { type: "test", data: "Hello WebSocket!" };
+                socket.send(JSON.stringify(message));
+                log('Sent test message: ' + JSON.stringify(message));
+            } else {
+                log('❌ Socket not connected. ReadyState: ' + (socket ? socket.readyState : 'undefined'));
+            }
+        }
+        
+        function testViteProxy() {
+            log('=== Testing via Vite Proxy ===');
+            const wsUrl = `ws://localhost:5173/ws`;
+            connectWebSocket(wsUrl);
+        }
+        
+        function testDirect() {
+            log('=== Testing Direct Connection ===');
+            const wsUrl = `ws://localhost:5000/ws`;
+            connectWebSocket(wsUrl);
+        }
+        
+        // Start with Vite proxy test
+        log('=== Initial Test via Vite Proxy ===');
+        testViteProxy();
+    </script>
+</body>
+</html>

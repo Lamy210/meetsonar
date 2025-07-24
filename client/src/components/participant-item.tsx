@@ -4,9 +4,11 @@ import type { Participant } from "@shared/schema";
 interface ParticipantItemProps {
   participant: Participant;
   isCurrentUser: boolean;
+  isLocal?: boolean;
+  remoteStream?: MediaStream;
 }
 
-export default function ParticipantItem({ participant, isCurrentUser }: ParticipantItemProps) {
+export default function ParticipantItem({ participant, isCurrentUser, isLocal, remoteStream }: ParticipantItemProps) {
   const getInitials = (name: string | undefined) => {
     if (!name) return "??";
     return name
