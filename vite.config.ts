@@ -52,11 +52,12 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
         secure: false,
-        timeout: 0,
+        // 最小限の設定でエラーを回避
         configure: (proxy, options) => {
           proxy.on('error', (err, req, res) => {
-            console.log('❌ WebSocket proxy error:', err.message);
+            console.log('❌ WebSocket proxy error:', err?.message || 'Unknown error');
           });
+          
           proxy.on('proxyReqWs', (proxyReq, req, socket, options, head) => {
             console.log('🔄 Proxying WebSocket request to backend:', req.url);
           });

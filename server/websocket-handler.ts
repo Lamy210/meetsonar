@@ -4,6 +4,8 @@ import { signalingMessageSchema } from "@shared/schema";
 interface WebSocketData {
   participantId?: string;
   roomId?: string;
+  sessionId?: string;
+  keepAliveInterval?: NodeJS.Timeout;
 }
 
 const connections = new Map<string, any>();
@@ -20,7 +22,21 @@ export function createWebSocketHandler() {
       ws.data = { sessionId };
       console.log(`[${timestamp}] Assigned session ID: ${sessionId}`);
       
-      // Welcome message removed to test basic connection stability
+      // 接続をマップに追加
+      connections.set(sessionId, ws);
+      
+      // KeepAlive ping送信を設定（30秒間隔）
+      const keepAliveInterval = setInterval(() => {
+        if (ws.readyState === 1) { // WebSocket.OPEN
+          ws.ping();
+          console.log(`[${new Date().toISOString()}] 📡 Ping sent to ${sessionId}`);
+        } else {
+          clearInterval(keepAliveInterval);
+        }
+      }, 30000);
+      
+      ws.data.keepAliveInterval = keepAliveInterval;
+      
       console.log(`[${timestamp}] ✅ WebSocket connection ready - waiting for client messages`);
       console.log(`[${timestamp}] WebSocket object type:`, typeof ws);
       console.log(`[${timestamp}] WebSocket readyState:`, ws.readyState);
@@ -84,6 +100,17 @@ export function createWebSocketHandler() {
       console.log(`[${timestamp}] Close code: ${code}, reason: ${reason || 'No reason provided'}`);
       console.log(`[${timestamp}] Session data:`, data);
       
+      // KeepAliveタイマーをクリーンアップ
+      if (data.keepAliveInterval) {
+        clearInterval(data.keepAliveInterval);
+        console.log(`[${timestamp}] 🧹 KeepAlive interval cleared for session ${data.sessionId}`);
+      }
+      
+      // セッションを接続マップから削除
+      if (data.sessionId) {
+        connections.delete(data.sessionId);
+      }
+      
       if (data.participantId && data.roomId) {
         connections.delete(data.participantId);
         console.log(`[${timestamp}] 👋 Participant ${data.participantId} disconnected from room ${data.roomId}`);
@@ -113,9 +140,12 @@ export function createWebSocketHandler() {
 }
 
 async function handleJoinRoom(ws: any, message: any) {
-  const { roomId, participantId, payload } = message;
+  const { roomId, participantId, displayName, payload } = message;
   
   try {
+    console.log(`[${new Date().toISOString()}] 🚪 Processing join-room for ${participantId} in room ${roomId}`);
+    console.log(`[${new Date().toISOString()}] DisplayName: ${displayName}`);
+    
     // ルームが存在するか確認、存在しない場合は作成
     let room = await storage.getRoom(roomId);
     if (!room) {
@@ -130,15 +160,20 @@ async function handleJoinRoom(ws: any, message: any) {
     }
     
     // Store connection
-    ws.data = { participantId, roomId };
+    ws.data = { 
+      participantId, 
+      roomId,
+      sessionId: ws.data.sessionId,
+      keepAliveInterval: ws.data.keepAliveInterval
+    };
     connections.set(participantId, ws);
     
-    // Create or update participant
+    // Create or update participant（displayNameを直接使用）
     await storage.addParticipant({
       roomId,
-      displayName: payload.displayName,
+      displayName: displayName || `User ${participantId}`, // displayNameがない場合のフォールバック
       connectionId: participantId,
-      isHost: payload.isHost || false,
+      isHost: (payload && payload.isHost) || false,
     });
     
     // Get all participants
