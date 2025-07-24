@@ -1,218 +1,458 @@
 # MeetSonar
 
-リアルタイムビデオ通話アプリケーション
+🎥 **リアルタイムビデオ通話アプリケーション** - WebRTCベースのプロフェッショナル会議プラットフォーム
 
-## 概要
+![MeetSonar Demo](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue)
+![React](https://img.shields.io/badge/React-18+-blue)
+![WebRTC](https://img.shields.io/badge/WebRTC-Enabled-orange)
 
-MeetSonarは、WebRTCを使用したモダンなビデオ通話プラットフォームです。リアルタイムでの音声・ビデオ通話、画面共有、参加者管理機能を提供します。
+## 📋 概要
 
-## 特徴
+MeetSonarは、現代的なビデオ会議のニーズに応えるWebRTCベースのリアルタイム通話プラットフォームです。高品質な音声・ビデオ通話、画面共有、チャット機能、そして柔軟な招待システムを提供します。
 
-- 🎥 リアルタイムビデオ・音声通話
-- 🖥️ 高品質画面共有機能
-- 📹 通話録画・ダウンロード機能
-- 👥 複数参加者サポート
-- 📱 レスポンシブデザイン
-- 🌙 ダークテーマ対応
-- 🔒 セキュアな接続
+## ✨ 主要機能
 
-## 技術スタック
+### 🎥 ビデオ通話機能
+- **高品質ビデオ・音声通話** - WebRTCによる低遅延通信
+- **画面共有** - デスクトップ・アプリケーション画面の共有
+- **通話録画** - ローカル録画とダウンロード機能
+- **アダプティブ品質** - ネットワーク状況に応じた自動調整
 
-## 技術スタック
+### 👥 参加者管理
+- **リアルタイム参加者表示** - 音声・ビデオ状態の可視化
+- **複数参加者サポート** - 最大10名までの同時参加
+- **動的参加・退出** - 通話中の参加者変更対応
+
+### � チャット機能
+- **リアルタイムチャット** - 通話中のテキストメッセージ
+- **自動スクロール** - 新着メッセージの自動追跡
+- **参加通知** - 参加者の入退室通知
+
+### 📧 招待システム
+- **メール招待** - トークンベースの安全な招待
+- **URL招待** - 直接共有可能な招待リンク
+- **事前設定** - 招待者情報と参加者名の事前入力
+- **有効期限管理** - 招待の時間制限機能
+
+### ⚙️ メディア設定
+- **デバイス管理** - カメラ・マイク・スピーカーの選択
+- **プレビュー機能** - 設定前のデバイステスト
+- **設定永続化** - デバイス設定の自動保存
+
+### 🎨 ユーザーエクスペリエンス
+- **レスポンシブデザイン** - モバイル・デスクトップ対応
+- **ダークテーマ** - 目に優しいUI
+- **アクセシビリティ** - キーボードナビゲーション対応
+- **モダンUI** - Tailwind CSS + Radix UIベース
+
+## 🛠️ 技術スタック
 
 ### フロントエンド
-
-- **React 18** - UIライブラリ
-- **TypeScript** - 型安全性
-- **Tailwind CSS** - スタイリング
+- **React 18** - 最新のReactフレームワーク
+- **TypeScript** - 型安全性とコード品質
+- **Tailwind CSS** - ユーティリティファーストCSS
 - **Radix UI** - アクセシブルなコンポーネント
-- **Wouter** - 軽量ルーティング
-- **React Query** - データフェッチング
-- **WebRTC** - リアルタイム通信
+- **Wouter** - 軽量ルーティングライブラリ
+- **TanStack Query** - 効率的なデータフェッチング
+- **WebRTC** - リアルタイム通信API
+- **Lucide React** - モダンアイコンセット
 
 ### バックエンド
-
-- **Node.js** - サーバーランタイム
-- **Express.js** - Webフレームワーク
-- **WebSocket** - リアルタイム通信
-- **Drizzle ORM** - データベースORM
-- **PostgreSQL** - データベース
+- **Bun** - 高速JavaScriptランタイム
+- **Hono** - 軽量Webフレームワーク
+- **WebSocket** - リアルタイム双方向通信
+- **Drizzle ORM** - 型安全なORM
+- **PostgreSQL** - リレーショナルデータベース
+- **Zod** - スキーマバリデーション
 
 ### 開発ツール
-- **Vite** - ビルドツール
-- **ESBuild** - 高速バンドル
-- **TypeScript** - 型システム
+- **Vite** - 高速ビルドツール
+- **ESBuild** - 高速バンドラー
+- **Docker** - コンテナ化開発環境
+- **Playwright** - E2Eテスト
+- **Just** - タスクランナー
 
-## セットアップ
+## 🚀 クイックスタート
 
-### 前提条件
-- Node.js (v18以上)
-- PostgreSQL
-- npm または yarn
+### Docker開発環境（推奨）
 
-### インストール
+最も簡単な方法はDockerを使用することです：
 
-#### Docker開発環境（推奨）
-
-最も簡単な開発方法はDockerを使用することです：
-
-1. リポジトリをクローン
 ```bash
+# リポジトリをクローン
 git clone https://github.com/your-username/meetsonar.git
 cd meetsonar
-```
 
-2. 環境変数を設定
-```bash
+# 環境変数を設定
 cp .env.example .env
-```
 
-3. 全サービスの起動
-```bash
+# 全サービスを起動
 make up
 
 # または watch モードで起動（ファイル変更の自動反映）
 make up-watch
 ```
 
-- **フロントエンド**: http://localhost:5173
-- **バックエンドAPI**: http://localhost:5000
-- **PostgreSQL**: localhost:5432
+**アクセスURL:**
+- 🌐 **フロントエンド**: http://localhost:5173
+- 🔧 **バックエンドAPI**: http://localhost:5000
+- 🗄️ **PostgreSQL**: localhost:5432
 
-詳細は [README-DOCKER.md](./README-DOCKER.md) を参照してください。
+詳細なDocker設定については [README-DOCKER.md](./README-DOCKER.md) を参照してください。
 
-#### ローカル開発環境
+### ローカル開発環境
 
-Dockerを使用しない場合のセットアップ：
+Dockerを使用しない場合：
 
-1. リポジトリをクローン
 ```bash
+# リポジトリをクローン
 git clone https://github.com/your-username/meetsonar.git
 cd meetsonar
-```
 
-2. 依存関係をインストール
-```bash
-npm install
-```
+# 依存関係をインストール
+bun install
 
-3. 環境変数を設定
-```bash
+# 環境変数を設定
 cp .env.example .env
+# .envファイルを編集してデータベース設定等を入力
+
+# データベースをセットアップ
+bun run db:push
+
+# 開発サーバー起動
+bun run dev
 ```
 
-必要な環境変数を `.env` ファイルに設定してください：
-```
-DATABASE_URL=postgresql://username:password@localhost:5432/meetsonar
-```
+### 手書きDB開発モード
 
-4. データベースをセットアップ
-```bash
-npm run db:push
-```
-
-### 開発サーバー起動
-
-**Docker使用時:**
-```bash
-make up-watch  # ファイル変更の自動反映
-```
-
-**ローカル開発時:**
-```bash
-npm run dev
-```
-
-アプリケーションは `http://localhost:5173` (Docker) または `http://localhost:5000` (ローカル) で起動します。
-
-### プロダクションビルド
+PostgreSQLなしで簡単に開発を始められます：
 
 ```bash
-npm run build
-npm start
+# 開発サーバー起動（手書きDBモード）
+bun run dev:verbose
+
+# アクセス: http://localhost:5173
 ```
 
-## 使用方法
+## 📖 使用方法
 
-1. **ロビーページ**: トップページで部屋名を入力してビデオ通話を開始
-2. **通話ページ**: ビデオ・音声の切り替え、画面共有、参加者管理
-3. **招待機能**: 他の参加者を通話に招待
+### 基本的な流れ
 
-## 主要機能
+1. **ロビーページ** (`/`)
+   - 表示名を入力
+   - 新しい会議を作成 または 既存の会議に参加
 
-### ビデオ通話
-- 高品質なビデオ・音声通話
-- 自動的な品質調整
-- ネットワーク状況に応じた最適化
+2. **会議ルーム** (`/room/:roomId`)
+   - ビデオ・音声のON/OFF
+   - 画面共有
+   - チャット
+   - 招待機能
 
-### 画面共有
-- デスクトップ全体または特定のアプリケーション画面を共有
-- 高フレームレート（最大30fps）でのスムーズな画面共有
-- 1920x1080の高解像度サポート
-- ワンクリックでの画面共有開始・停止
+3. **招待システム**
+   - メール招待（トークンベース）
+   - URL招待（直接リンク共有）
 
-### 録画機能
-- リアルタイム通話録画
-- ローカル・リモート参加者の映像を合成
-- WebM形式での高品質録画
-- ワンクリックダウンロード機能
+### 招待システムの使用方法
 
-### 参加者管理
-- リアルタイムでの参加者一覧表示
-- 音声・ビデオの状態表示
-- 参加者の追加・削除
+#### URL招待（推奨）
 
-## API エンドポイント
+1. **ロビーページ**から「サンプルURL招待を生成」
+2. 生成されたURLを相手に共有
+3. 相手は URL をクリックして直接参加
 
-- `GET /api/` - API状態確認
-- `WebSocket /ws` - リアルタイム通信
+#### メール招待
 
-## ファイル構成
+1. **会議ルーム**で「招待」ボタンをクリック
+2. 相手のメールアドレスを入力
+3. 招待を送信（開発環境ではトークンが生成される）
+4. 相手は `/invite/:token` でアクセス
+
+詳細な招待システムの使用方法は以下のドキュメントを参照：
+- [招待システムガイド](./docs/INVITATION_SYSTEM_GUIDE.md)
+- [URL招待ガイド](./docs/URL_INVITATION_GUIDE.md)
+
+## 🎯 主要ページ・機能
+
+### ページ構成
+
+| ページ | URL | 説明 |
+|--------|-----|------|
+| ロビー | `/` | 会議の作成・参加 |
+| 会議ルーム | `/room/:roomId` | メイン通話画面 |
+| トークン招待 | `/invite/:token` | メール招待用ページ |
+| URL招待 | `/join/:roomId` | URL招待用ページ |
+| デバッグ | `/debug` | WebRTC診断 |
+| WebSocket診断 | `/ws-diagnostics` | 接続診断 |
+
+### コンポーネント構成
 
 ```
-meetsonar/
-├── client/           # フロントエンドコード
-│   ├── src/
-│   │   ├── components/   # Reactコンポーネント
-│   │   ├── hooks/        # カスタムフック
-│   │   ├── lib/          # ユーティリティ
-│   │   └── pages/        # ページコンポーネント
-├── server/           # バックエンドコード
-├── shared/           # 共有型定義
-└── ...
+client/src/
+├── components/
+│   ├── ui/              # 基本UIコンポーネント
+│   ├── call-controls.tsx # 通話コントロール
+│   ├── invite-modal.tsx  # 招待モーダル
+│   ├── settings-modal.tsx# 設定モーダル
+│   ├── tab-chat.tsx     # チャット
+│   └── video-grid.tsx   # ビデオグリッド
+├── hooks/
+│   ├── use-webrtc.tsx   # WebRTC管理
+│   ├── use-websocket.tsx# WebSocket管理
+│   ├── use-media-settings.tsx # メディア設定
+│   └── use-toast.tsx    # 通知管理
+└── pages/
+    ├── lobby.tsx        # ロビーページ
+    ├── call.tsx         # 通話ページ
+    ├── invite.tsx       # 招待ページ
+    └── join.tsx         # 参加ページ
 ```
 
-## 開発スクリプト
+## 🔌 API リファレンス
 
-- `npm run dev` - 開発サーバー起動
-- `npm run build` - プロダクションビルド
-- `npm run start` - プロダクションサーバー起動
-- `npm run check` - TypeScript型チェック
-- `npm run db:push` - データベーススキーマ適用
+### REST API エンドポイント
 
-## ブラウザサポート
+| エンドポイント | メソッド | 説明 |
+|---------------|---------|------|
+| `/api/` | GET | API状態確認 |
+| `/api/invitations` | POST | 招待作成 |
+| `/api/invitations/:token` | GET | 招待情報取得 |
+| `/api/invitations/:token/respond` | POST | 招待への応答 |
 
-- Chrome 88+
-- Firefox 85+
-- Safari 14+
-- Edge 88+
+### WebSocket イベント
 
-## ライセンス
+| イベント | 説明 |
+|---------|------|
+| `join-room` | ルーム参加 |
+| `leave-room` | ルーム退出 |
+| `webrtc-offer` | WebRTC オファー |
+| `webrtc-answer` | WebRTC アンサー |
+| `ice-candidate` | ICE候補 |
+| `chat-message` | チャットメッセージ |
+| `participant-joined` | 参加者参加通知 |
+| `participant-left` | 参加者退出通知 |
 
-MIT License
+詳細なAPI仕様は [MEDIA_SETTINGS_API_REFERENCE.md](./docs/MEDIA_SETTINGS_API_REFERENCE.md) を参照してください。
 
-## 貢献
+## 🧪 テスト
+
+### E2Eテスト
+
+```bash
+# Playwrightテストの実行
+bun run test:e2e
+
+# 特定のテストスイート
+bun run test:websocket
+bun run test:multi-user
+```
+
+### 手動テスト
+
+```bash
+# WebSocket接続テスト
+bun run ws-test            # WebSocket直接テスト
+
+# 特定機能テスト
+bun run test:chat          # チャット機能テスト
+bun run test:websocket     # WebSocketテスト
+bun run test:api           # APIテスト
+```
+
+テスト詳細は [TESTING.md](./TESTING.md) を参照してください。
+
+## 📊 パフォーマンス
+
+パフォーマンス分析結果は [PERFORMANCE_ANALYSIS.md](./PERFORMANCE_ANALYSIS.md) で確認できます。
+
+主要な最適化：
+- WebRTC接続の効率化
+- メディアストリーム管理の改善
+- UIレンダリングの最適化
+- メモリ使用量の削減
+
+## 🛠️ 開発スクリプト
+
+### 基本コマンド
+
+```bash
+# 開発サーバー起動
+bun run dev                 # サーバー起動（bun run server/index.ts）
+bun run dev:node           # Node.js版サーバー起動
+bun run dev:verbose        # 詳細ログ付き（DEBUG=vite:proxy bun run dev:client）
+bun run dev:client         # フロントエンドのみ
+bun run dev:ws-debug       # WebSocketデバッグモード
+
+# ビルド
+bun run build              # プロダクションビルド（Bun向け）
+bun run build:node         # プロダクションビルド（Node.js向け）
+bun run build:client       # フロントエンドビルド
+
+# 実行
+bun run start              # プロダクション実行（Bun版）
+bun run start:node         # プロダクション実行（Node.js版）
+
+# データベース
+bun run db:push            # スキーマ適用
+bun run db:migrate         # マイグレーション実行
+bun run db:studio          # Drizzle Studio起動
+
+# テスト
+bun run test               # 全テスト実行
+bun run test:e2e           # E2Eテスト
+bun run test:unit          # ユニットテスト
+bun run test:integration   # 統合テスト
+bun run test:coverage      # カバレッジ付きテスト
+bun run test:watch         # ウォッチモード
+
+# 特定機能テスト
+bun run test:chat          # チャット機能テスト
+bun run test:websocket     # WebSocketテスト
+bun run test:api           # APIテスト
+
+# 型チェック
+bun run check              # TypeScript型チェック
+
+# Playwright
+bun run playwright:install # Playwrightブラウザインストール
+```
+
+### Docker コマンド
+
+```bash
+# 基本操作
+make up                   # サービス起動
+make up-watch            # ファイル監視付き起動
+make down                # サービス停止
+make restart             # 再起動
+
+# 開発用
+make logs                # ログ表示
+make shell               # コンテナシェル
+make clean               # クリーンアップ
+
+# データベース
+make db-reset            # DB初期化
+make db-migrate          # マイグレーション
+```
+
+## 📚 ドキュメント
+
+### ユーザーガイド
+- [招待システムガイド](./docs/INVITATION_SYSTEM_GUIDE.md) - 招待機能の使用方法
+- [URL招待ガイド](./docs/URL_INVITATION_GUIDE.md) - URL招待の詳細
+- [設定ユーザーガイド](./docs/SETTINGS_USER_GUIDE.md) - メディア設定の使用方法
+
+### 技術ドキュメント
+- [メディア設定技術仕様](./docs/MEDIA_SETTINGS_TECHNICAL_SPEC.md) - 技術詳細
+- [メディア設定API参照](./docs/MEDIA_SETTINGS_API_REFERENCE.md) - API仕様
+- [WebRTC実装ノート](./docs/use-webrtc-implementation-notes.md) - WebRTC実装詳細
+
+### 開発ドキュメント
+- [Docker開発ガイド](./README-DOCKER.md) - Docker環境の詳細
+- [UI/UX改善実装](./docs/UI_UX_IMPROVEMENTS_IMPLEMENTATION.md) - UI改善の記録
+- [チャット機能修正](./docs/CHAT_SCROLL_FIX.md) - チャット改善の記録
+
+## 🌐 ブラウザサポート
+
+| ブラウザ | バージョン | WebRTC | 画面共有 | 備考 |
+|---------|----------|--------|----------|------|
+| Chrome | 88+ | ✅ | ✅ | 推奨 |
+| Firefox | 85+ | ✅ | ✅ | フル対応 |
+| Safari | 14+ | ✅ | ⚠️ | 制限あり |
+| Edge | 88+ | ✅ | ✅ | Chromiumベース |
+
+⚠️ Safari: 画面共有に一部制限があります
+
+## 🚀 デプロイ
+
+### プロダクション環境
+
+```bash
+# ビルド
+bun run build
+
+# 環境変数設定
+export DATABASE_URL="postgresql://..."
+export NODE_ENV="production"
+
+# 起動
+bun run start
+```
+
+### Docker プロダクション
+
+```bash
+# プロダクションイメージビルド
+docker build -t meetsonar:latest .
+
+# 起動
+docker run -p 3000:3000 -e DATABASE_URL="..." meetsonar:latest
+```
+
+## 🤝 貢献
 
 1. このリポジトリをフォーク
 2. フィーチャーブランチを作成 (`git checkout -b feature/amazing-feature`)
-3. 変更をコミット (`git commit -m 'Add some amazing feature'`)
+3. 変更をコミット (`git commit -m 'Add amazing feature'`)
 4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
 5. プルリクエストを作成
 
-## サポート
+### 開発ガイドライン
 
-問題や質問がある場合は、[Issues](https://github.com/your-username/meetsonar/issues)で報告してください。
+- TypeScriptの型安全性を維持
+- ESLint・Prettierの設定に従う
+- テストの追加を推奨
+- コミットメッセージは[Conventional Commits](https://www.conventionalcommits.org/)に従う
+
+## 📄 ライセンス
+
+このプロジェクトは [MIT License](LICENSE) の下で公開されています。
+
+## 🆘 サポート・トラブルシューティング
+
+### よくある問題
+
+**WebRTC接続エラー**
+- ブラウザがWebRTCに対応しているか確認
+- HTTPSまたはlocalhostでアクセスしているか確認
+- ファイアウォール設定を確認
+
+**メディアデバイスエラー**
+- ブラウザにカメラ・マイクの許可を与えているか確認
+- 他のアプリケーションがデバイスを使用していないか確認
+
+**招待リンクが機能しない**
+- URLパラメータが正しく設定されているか確認
+- 招待の有効期限が切れていないか確認
+
+### サポート
+
+問題や質問がある場合：
+1. [Issues](https://github.com/your-username/meetsonar/issues) で既存の問題を検索
+2. 新しいIssueを作成（バグレポート・機能要求）
+3. [Discussions](https://github.com/your-username/meetsonar/discussions) で議論
 
 ---
 
-MeetSonarを使用していただき、ありがとうございます！🎉
+## 🎉 謝辞
+
+MeetSonarを使用していただき、ありがとうございます！
+
+このプロジェクトは以下の素晴らしいオープンソースプロジェクトによって実現されています：
+- [React](https://reactjs.org/)
+- [WebRTC](https://webrtc.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [Radix UI](https://www.radix-ui.com/)
+- その他多くのコントリビューター
+
+**開発チーム** 🚀
+- メンテナー: [Your Name](https://github.com/your-username)
+- コントリビューター: [Contributors](https://github.com/your-username/meetsonar/contributors)
+
+---
+
+[![GitHub stars](https://img.shields.io/github/stars/your-username/meetsonar?style=social)](https://github.com/your-username/meetsonar)
+[![GitHub forks](https://img.shields.io/github/forks/your-username/meetsonar?style=social)](https://github.com/your-username/meetsonar)
+[![GitHub issues](https://img.shields.io/github/issues/your-username/meetsonar)](https://github.com/your-username/meetsonar/issues)
+[![GitHub license](https://img.shields.io/github/license/your-username/meetsonar)](https://github.com/your-username/meetsonar/blob/main/LICENSE)

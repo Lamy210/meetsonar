@@ -30,8 +30,8 @@ export default function Lobby() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl">
+    <div className="min-h-screen bg-slate-900 text-slate-50 py-8 px-4">
+      <div className="w-full max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center mb-6">
@@ -144,6 +144,61 @@ export default function Lobby() {
             <p className="text-sm text-slate-400">No downloads required, works in your browser</p>
           </div>
         </div>
+
+        {/* URL Invitation Demo */}
+        <div className="mt-12 mb-8">
+          <Card className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-md border-2 border-primary/30">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-xl">
+                <Users className="w-6 h-6 text-primary" />
+                <span className="text-primary">🔗 URL招待機能をテスト</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-slate-400 mb-4">
+                URL招待機能をテストするためのサンプルリンクを生成できます
+              </p>
+              
+              <div className="grid md:grid-cols-2 gap-4">
+                <Button
+                  onClick={() => {
+                    const testRoomId = generateRoomId();
+                    const urlInvite = `${window.location.origin}/join/${testRoomId}?inviter=テスト招待者&name=ゲストユーザー&email=guest@example.com`;
+                    navigator.clipboard.writeText(urlInvite);
+                    alert('テスト用URL招待リンクをクリップボードにコピーしました！\n\n' + urlInvite);
+                  }}
+                  variant="outline"
+                  className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  サンプルURL招待を生成
+                </Button>
+                
+                <Button
+                  onClick={() => {
+                    const testRoomId = "demo-room-" + Date.now().toString(36);
+                    setLocation(`/join/${testRoomId}?inviter=デモ招待者&name=${encodeURIComponent(displayName || 'テストユーザー')}&expires=${new Date(Date.now() + 24*60*60*1000).toISOString()}`);
+                  }}
+                  variant="outline"
+                  className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+                >
+                  <Video className="w-4 h-4 mr-2" />
+                  URL招待ページをテスト
+                </Button>
+              </div>
+              
+              <div className="text-xs text-slate-500 mt-2">
+                <p><strong>サンプルパラメータ:</strong></p>
+                <p>• 招待者: テスト招待者 / デモ招待者</p>
+                <p>• 事前設定名: ゲストユーザー / 入力した表示名</p>
+                <p>• 有効期限: 24時間後</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        {/* Bottom spacing for better scrolling */}
+        <div className="pb-8"></div>
       </div>
     </div>
   );

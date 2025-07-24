@@ -1,4 +1,4 @@
-import { Mic, MicOff, Video, VideoOff, Monitor, Settings, Phone, MoreVertical, Circle, Square, Download } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Monitor, Settings, Phone, MoreVertical, Circle, Square, Download, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface CallControlsProps {
@@ -14,6 +14,7 @@ interface CallControlsProps {
   onStopRecording: () => void;
   onDownloadRecording: () => void;
   onOpenSettings: () => void;
+  onOpenInvite: () => void;
   onLeaveCall: () => void;
   connectionQuality: string;
 }
@@ -31,6 +32,7 @@ export default function CallControls({
   onStopRecording,
   onDownloadRecording,
   onOpenSettings,
+  onOpenInvite,
   onLeaveCall,
   connectionQuality,
 }: CallControlsProps) {
@@ -115,11 +117,22 @@ export default function CallControls({
             </Button>
           )}
 
+          {/* Invite Participants */}
+          <Button
+            onClick={onOpenInvite}
+            className="control-button neutral"
+            size="icon"
+            title="参加者を招待"
+          >
+            <UserPlus className="w-5 h-5" />
+          </Button>
+
           {/* Settings */}
           <Button
             onClick={onOpenSettings}
             className="control-button neutral"
             size="icon"
+            title="設定"
           >
             <Settings className="w-5 h-5" />
           </Button>

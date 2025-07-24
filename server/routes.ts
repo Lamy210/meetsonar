@@ -3,7 +3,8 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 import { storage } from "./storage";
-import { signalingMessageSchema } from "@shared/schema";
+import { signalingMessageSchema, inviteUserSchema, respondToInviteSchema } from "@shared/schema";
+import crypto from "crypto";
 
 interface WebSocketWithId extends WebSocket {
   participantId?: string;
@@ -38,6 +39,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const participants = await storage.getParticipants(req.params.roomId);
       res.json(participants);
     } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Invitation routes
+  app.post("/api/rooms/:roomId/invite", async (req, res) => {
+    try {
+      const result = inviteUserSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid request data", details: result.error.issues });
+      }
+
+      const inviteData = result.data;
+      
+      // Check if room exists
+      const room = await storage.getRoom(req.params.roomId);
+      if (!room) {
+        return res.status(404).json({ error: "Room not found" });
+      }
+
+      // Generate invite token
+      const inviteToken = crypto.randomBytes(32).toString('hex');
+      
+      // Calculate expiration time
+      const expiresAt = new Date();
+      expiresAt.setHours(expiresAt.getHours() + inviteData.expirationHours);
+
+      // Create invitation
+      const invitation = await storage.createInvitation({
+        roomId: req.params.roomId,
+        inviterDisplayName: inviteData.inviterDisplayName,
+        inviteeEmail: inviteData.inviteeEmail,
+        inviteeDisplayName: inviteData.inviteeDisplayName,
+        inviteToken,
+        expiresAt,
+      });
+
+      // Generate invitation link
+      const inviteLink = `${req.protocol}://${req.get('host')}/invite/${inviteToken}`;
+
+      res.status(201).json({
+        invitation,
+        inviteLink,
+        message: "Invitation created successfully"
+      });
+    } catch (error) {
+      console.error("Error creating invitation:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/invitations/:token", async (req, res) => {
+    try {
+      const invitation = await storage.getInvitationByToken(req.params.token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+
+      // Check if invitation is expired
+      if (new Date() > invitation.expiresAt) {
+        return res.status(410).json({ error: "Invitation has expired" });
+      }
+
+      // Check if invitation is already responded to
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ error: `Invitation already ${invitation.status}` });
+      }
+
+      // Get room information
+      const room = await storage.getRoom(invitation.roomId);
+      if (!room) {
+        return res.status(404).json({ error: "Associated room not found" });
+      }
+
+      res.json({
+        invitation: {
+          id: invitation.id,
+          roomId: invitation.roomId,
+          roomName: room.name,
+          inviterDisplayName: invitation.inviterDisplayName,
+          inviteeEmail: invitation.inviteeEmail,
+          createdAt: invitation.createdAt,
+          expiresAt: invitation.expiresAt,
+        },
+        room: {
+          id: room.id,
+          name: room.name,
+          maxParticipants: room.maxParticipants,
+        }
+      });
+    } catch (error) {
+      console.error("Error getting invitation:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/invitations/:token/respond", async (req, res) => {
+    try {
+      const result = respondToInviteSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ error: "Invalid request data", details: result.error.issues });
+      }
+
+      const { action, displayName } = result.data;
+      
+      const invitation = await storage.getInvitationByToken(req.params.token);
+      if (!invitation) {
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+
+      // Check if invitation is expired
+      if (new Date() > invitation.expiresAt) {
+        return res.status(410).json({ error: "Invitation has expired" });
+      }
+
+      // Check if invitation is already responded to
+      if (invitation.status !== 'pending') {
+        return res.status(400).json({ error: `Invitation already ${invitation.status}` });
+      }
+
+      // Update invitation status
+      const updatedInvitation = await storage.updateInvitationStatus(invitation.id, action);
+
+      if (action === 'accept') {
+        // Get room information for redirect
+        const room = await storage.getRoom(invitation.roomId);
+        const joinLink = `${req.protocol}://${req.get('host')}/room/${invitation.roomId}${displayName ? `?displayName=${encodeURIComponent(displayName)}` : ''}`;
+        
+        res.json({
+          message: "Invitation accepted successfully",
+          invitation: updatedInvitation,
+          joinLink,
+          room
+        });
+      } else {
+        res.json({
+          message: "Invitation declined",
+          invitation: updatedInvitation
+        });
+      }
+    } catch (error) {
+      console.error("Error responding to invitation:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/rooms/:roomId/invitations", async (req, res) => {
+    try {
+      const invitations = await storage.getInvitationsByRoom(req.params.roomId);
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error getting room invitations:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

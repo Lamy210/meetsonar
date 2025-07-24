@@ -7,6 +7,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Lobby from "@/pages/lobby";
 import Call from "@/pages/call";
+import InvitePage from "@/pages/invite";
+import JoinPage from "@/pages/join";
 import WebRTCDebugPage from "@/pages/debug";
 import WebSocketDiagnosticsPage from "@/pages/websocket-diagnostics";
 
@@ -16,6 +18,8 @@ function Router() {
       <Route path="/" component={Lobby} />
       <Route path="/debug" component={WebRTCDebugPage} />
       <Route path="/ws-diagnostics" component={WebSocketDiagnosticsPage} />
+      <Route path="/invite/:token" component={InvitePage} />
+      <Route path="/join/:roomId" component={Call} />
       <Route path="/room/:roomId" component={Call} />
       <Route path="/call/:roomId" component={Call} />
       <Route component={NotFound} />
