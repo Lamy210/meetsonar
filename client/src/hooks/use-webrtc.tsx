@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Participant, ChatMessage } from "@shared/schema";
 import { logger } from "@/lib/logger";
+import { useMediaSettings } from "@/hooks/use-media-settings";
 
 export interface UseWebRTCReturn {
   participants: Participant[];
@@ -16,6 +17,7 @@ export interface UseWebRTCReturn {
   participantId: string;
   sendChatMessage: (message: string) => void;
   requestChatHistory: () => void;
+  refreshMediaSettings: () => void;
   toggleAudio: () => void;
   toggleVideo: () => void;
   toggleScreenShare: () => void;
@@ -45,6 +47,9 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     console.error("❌ Invalid displayName:", displayName);
     throw new Error("Invalid displayName provided to useWebRTC");
   }
+  
+  // Media settings hook
+  const { getMediaConstraints, refreshDevices } = useMediaSettings();
   
   // Generate a unique session ID for this browser tab/instance
   const sessionId = useRef<string>(`${displayName}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
@@ -312,18 +317,10 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   useEffect(() => {
     const initializeLocalStream = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: "user"
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
-        });
+        const constraints = getMediaConstraints();
+        console.log("Using media constraints:", constraints);
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
         localStreamRef.current = stream;
         setLocalStream(stream);
@@ -356,7 +353,59 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
         localStreamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [getMediaConstraints]); // getMediaConstraintsを依存関係に追加
+
+  // メディア設定更新関数
+  const refreshMediaSettings = useCallback(async () => {
+    try {
+      // デバイス一覧を更新
+      await refreshDevices();
+      
+      // 新しい設定でストリームを再初期化
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
+      const constraints = getMediaConstraints();
+      console.log("Refreshing media with new constraints:", constraints);
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      stream.getAudioTracks().forEach(track => {
+        track.enabled = isAudioEnabled;
+      });
+      stream.getVideoTracks().forEach(track => {
+        track.enabled = isVideoEnabled;
+      });
+
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+
+      // 既存のPeer Connectionに新しいストリームを送信
+      peerConnections.current.forEach(async (pc, connectionId) => {
+        try {
+          // 既存のsenderを削除
+          const senders = pc.getSenders();
+          for (const sender of senders) {
+            if (sender.track) {
+              await pc.removeTrack(sender);
+            }
+          }
+          
+          // 新しいトラックを追加
+          stream.getTracks().forEach(track => {
+            pc.addTrack(track, stream);
+          });
+        } catch (error) {
+          console.error("Failed to update tracks for peer:", connectionId, error);
+        }
+      });
+
+      logger.info("Media settings refreshed successfully");
+    } catch (error) {
+      logger.error("Failed to refresh media settings:", error);
+    }
+  }, [getMediaConstraints, refreshDevices, isAudioEnabled, isVideoEnabled]);
 
   const handleSignalingMessage = useCallback(async (message: any) => {
     console.log("Received signaling message:", message);
@@ -1406,6 +1455,7 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
     participantId: sessionId.current,
     sendChatMessage,
     requestChatHistory,
+    refreshMediaSettings,
     toggleAudio,
     toggleVideo,
     toggleScreenShare,

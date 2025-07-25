@@ -43,6 +43,20 @@ export const chatMessages = pgTable("chat_messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const invitations = pgTable("invitations", {
+  id: serial("id").primaryKey(),
+  roomId: text("room_id").references(() => rooms.id).notNull(),
+  inviterUserId: integer("inviter_user_id").references(() => users.id),
+  inviterDisplayName: text("inviter_display_name").notNull(),
+  inviteeEmail: text("invitee_email").notNull(),
+  inviteeDisplayName: text("invitee_display_name"),
+  status: text("status").default("pending").notNull(), // pending, accepted, declined, expired
+  inviteToken: text("invite_token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  respondedAt: timestamp("responded_at"),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -62,6 +76,27 @@ export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
   createdAt: true,
 });
 
+export const insertInvitationSchema = createInsertSchema(invitations).omit({
+  id: true,
+  createdAt: true,
+  respondedAt: true,
+});
+
+// Invitation request/response schemas
+export const inviteUserSchema = z.object({
+  roomId: z.string().min(1),
+  inviteeEmail: z.string().email(),
+  inviteeDisplayName: z.string().optional(),
+  inviterDisplayName: z.string().min(1),
+  expirationHours: z.number().min(1).max(168).default(24), // 1-168 hours (1 week max)
+});
+
+export const respondToInviteSchema = z.object({
+  inviteToken: z.string().min(1),
+  action: z.enum(["accept", "decline"]),
+  displayName: z.string().min(1).optional(), // For accepting invitations
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -73,6 +108,9 @@ export type Participant = typeof participants.$inferSelect;
 
 export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 export type ChatMessage = typeof chatMessages.$inferSelect;
+
+export type InsertInvitation = z.infer<typeof insertInvitationSchema>;
+export type Invitation = typeof invitations.$inferSelect;
 
 // WebRTC signaling message types
 export const signalingMessageSchema = z.object({
@@ -96,3 +134,5 @@ export const signalingMessageSchema = z.object({
 });
 
 export type SignalingMessage = z.infer<typeof signalingMessageSchema>;
+export type InviteUserRequest = z.infer<typeof inviteUserSchema>;
+export type RespondToInviteRequest = z.infer<typeof respondToInviteSchema>;

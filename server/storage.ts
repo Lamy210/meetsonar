@@ -1,4 +1,4 @@
-import { rooms, participants, chatMessages, type Room, type Participant, type ChatMessage, type InsertRoom, type InsertParticipant, type InsertChatMessage } from "@shared/schema";
+import { rooms, participants, chatMessages, invitations, type Room, type Participant, type ChatMessage, type Invitation, type InsertRoom, type InsertParticipant, type InsertChatMessage, type InsertInvitation } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 
@@ -19,12 +19,19 @@ export interface IStorage {
   // Chat operations
   getChatHistory(roomId: string, limit?: number): Promise<ChatMessage[]>;
   addChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+
+  // Invitation operations
+  createInvitation(invitation: InsertInvitation): Promise<Invitation>;
+  getInvitationByToken(token: string): Promise<Invitation | undefined>;
+  getInvitationsByRoom(roomId: string): Promise<Invitation[]>;
+  updateInvitationStatus(id: number, status: string): Promise<Invitation | undefined>;
 }
 
 export class MemStorage implements IStorage {
   private rooms: Map<string, Room>;
   private participants: Map<string, Participant[]>;
   private chatMessages: Map<string, ChatMessage[]>;
+  private invitations: Map<string, Invitation[]>;
   private participantIdCounter: number;
   private chatMessageIdCounter: number;
 
@@ -32,6 +39,7 @@ export class MemStorage implements IStorage {
     this.rooms = new Map();
     this.participants = new Map();
     this.chatMessages = new Map();
+    this.invitations = new Map();
     this.participantIdCounter = 1;
     this.chatMessageIdCounter = 1;
   }
@@ -159,6 +167,51 @@ export class MemStorage implements IStorage {
 
     return newMessage;
   }
+
+  async createInvitation(invitation: InsertInvitation): Promise<Invitation> {
+    const roomInvitations = this.invitations.get(invitation.roomId) || [];
+    const newInvitation: Invitation = {
+      ...invitation,
+      id: roomInvitations.length > 0 ? Math.max(...roomInvitations.map(i => i.id)) + 1 : 1,
+      inviterUserId: invitation.inviterUserId || null,
+      inviteeDisplayName: invitation.inviteeDisplayName || null,
+      status: invitation.status || 'pending',
+      createdAt: new Date(),
+      respondedAt: null,
+    };
+
+    roomInvitations.push(newInvitation);
+    this.invitations.set(invitation.roomId, roomInvitations);
+
+    return newInvitation;
+  }
+
+  async getInvitationByToken(token: string): Promise<Invitation | undefined> {
+    for (const roomInvitations of this.invitations.values()) {
+      const invitation = roomInvitations.find(i => i.inviteToken === token);
+      if (invitation) return invitation;
+    }
+    return undefined;
+  }
+
+  async getInvitationsByRoom(roomId: string): Promise<Invitation[]> {
+    return this.invitations.get(roomId) || [];
+  }
+
+  async updateInvitationStatus(id: number, status: string): Promise<Invitation | undefined> {
+    for (const roomInvitations of this.invitations.values()) {
+      const invitationIndex = roomInvitations.findIndex(i => i.id === id);
+      if (invitationIndex !== -1) {
+        roomInvitations[invitationIndex] = {
+          ...roomInvitations[invitationIndex],
+          status,
+          respondedAt: new Date(),
+        };
+        return roomInvitations[invitationIndex];
+      }
+    }
+    return undefined;
+  }
 }
 
 // Database implementation
@@ -274,6 +327,41 @@ export class DatabaseStorage implements IStorage {
       .values(message)
       .returning();
     return newMessage;
+  }
+
+  async createInvitation(invitation: InsertInvitation): Promise<Invitation> {
+    const [newInvitation] = await db
+      .insert(invitations)
+      .values({
+        ...invitation,
+        createdAt: new Date(),
+      })
+      .returning();
+    return newInvitation;
+  }
+
+  async getInvitationByToken(token: string): Promise<Invitation | undefined> {
+    const [invitation] = await db
+      .select()
+      .from(invitations)
+      .where(eq(invitations.inviteToken, token));
+    return invitation || undefined;
+  }
+
+  async getInvitationsByRoom(roomId: string): Promise<Invitation[]> {
+    return await db.select().from(invitations).where(eq(invitations.roomId, roomId));
+  }
+
+  async updateInvitationStatus(id: number, status: string): Promise<Invitation | undefined> {
+    const [updatedInvitation] = await db
+      .update(invitations)
+      .set({ 
+        status,
+        respondedAt: new Date()
+      })
+      .where(eq(invitations.id, id))
+      .returning();
+    return updatedInvitation || undefined;
   }
 }
 

@@ -1,0 +1,35 @@
+/* Viewport height fix for mobile browsers */
+:root {
+  --vh: 1vh;
+}
+
+/* Update CSS custom property with JavaScript on resize/orientation change */
+.full-height {
+  height: 100vh; /* Fallback for older browsers */
+  height: calc(var(--vh, 1vh) * 100);
+  min-height: 100vh;
+  min-height: calc(var(--vh, 1vh) * 100);
+  max-height: 100vh;
+  max-height: calc(var(--vh, 1vh) * 100);
+}
+
+/* Better mobile support */
+@supports (height: 100dvh) {
+  .full-height {
+    height: 100dvh;
+    min-height: 100dvh;
+    max-height: 100dvh;
+  }
+}
+
+/* Prevent overscroll and ensure proper layout */
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Prevent horizontal scroll only */
+}
+
+#root {
+  width: 100%;
+  overflow-x: hidden; /* Prevent horizontal scroll only */
+}
