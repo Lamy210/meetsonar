@@ -22,15 +22,15 @@ const db = drizzle(sqlite, { schema });
 
 // Initialize database (create tables if they don't exist)
 try {
-  // Run basic initialization query to ensure tables exist
-  db.run(`CREATE TABLE IF NOT EXISTS rooms (
+  // Run basic initialization query to ensure tables exist - use sqlite.run() not db.run()
+  sqlite.run(`CREATE TABLE IF NOT EXISTS rooms (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     max_participants INTEGER DEFAULT 4
   )`);
 
-  db.run(`CREATE TABLE IF NOT EXISTS participants (
+  sqlite.run(`CREATE TABLE IF NOT EXISTS participants (
     id TEXT PRIMARY KEY,
     room_id TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -39,7 +39,7 @@ try {
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
   )`);
 
-  db.run(`CREATE TABLE IF NOT EXISTS chat_messages (
+  sqlite.run(`CREATE TABLE IF NOT EXISTS chat_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     room_id TEXT NOT NULL,
     participant_id TEXT NOT NULL,
@@ -49,7 +49,7 @@ try {
     FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE
   )`);
 
-  db.run(`CREATE TABLE IF NOT EXISTS invitations (
+  sqlite.run(`CREATE TABLE IF NOT EXISTS invitations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     room_id TEXT NOT NULL,
     token TEXT UNIQUE NOT NULL,
