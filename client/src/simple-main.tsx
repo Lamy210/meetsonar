@@ -1,4 +1,4 @@
-import { createRoot } from "react-dom/client";
+import { render } from "preact";
 
 function SimpleApp() {
   return (
@@ -11,7 +11,7 @@ function SimpleApp() {
       margin: '20px'
     }}>
       <h1>🎉 MeetSonar is Working!</h1>
-      <p>React application loaded successfully</p>
+      <p>Preact application loaded successfully</p>
       <p>Current time: {new Date().toLocaleString()}</p>
     </div>
   );
@@ -19,7 +19,7 @@ function SimpleApp() {
 
 // Error handling with detailed logging
 try {
-  console.log("🚀 Starting Simple React App...");
+  console.log("🚀 Starting Simple Preact App...");
   
   const rootElement = document.getElementById("root");
   if (!rootElement) {
@@ -28,11 +28,8 @@ try {
   
   console.log("✅ Root element found:", rootElement);
   
-  const root = createRoot(rootElement);
-  console.log("✅ React root created:", root);
-  
-  root.render(<SimpleApp />);
-  console.log("✅ React app rendered successfully!");
+  render(<SimpleApp />, rootElement);
+  console.log("✅ Preact app rendered successfully!");
   
   // Add a success indicator to the page title
   setTimeout(() => {

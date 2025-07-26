@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/minimal-button";
+import { Input } from "@/components/ui/minimal-input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/minimal-card";
 import { Video, Users, Plus } from "lucide-react";
 
 export default function Lobby() {
@@ -60,7 +60,7 @@ export default function Lobby() {
                   type="text"
                   placeholder="Enter your name"
                   value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  onChange={(e) => setDisplayName((e.target as HTMLInputElement).value)}
                   className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:ring-primary focus:border-primary"
                 />
               </div>
@@ -92,7 +92,7 @@ export default function Lobby() {
                   type="text"
                   placeholder="Enter your name"
                   value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  onChange={(e) => setDisplayName((e.target as HTMLInputElement).value)}
                   className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:ring-primary focus:border-primary"
                 />
               </div>
@@ -102,7 +102,7 @@ export default function Lobby() {
                   type="text"
                   placeholder="Enter room ID"
                   value={roomId}
-                  onChange={(e) => setRoomId(e.target.value)}
+                  onChange={(e) => setRoomId((e.target as HTMLInputElement).value)}
                   className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:ring-primary focus:border-primary"
                 />
               </div>

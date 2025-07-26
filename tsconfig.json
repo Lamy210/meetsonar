@@ -22,7 +22,8 @@
       "dom",
       "dom.iterable"
     ],
-    "jsx": "preserve",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
@@ -31,6 +32,8 @@
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
+      "react": ["./node_modules/preact/compat/dist/compat"],
+      "react-dom": ["./node_modules/preact/compat/dist/compat"],
       "@/*": [
         "./client/src/*"
       ],

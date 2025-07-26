@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/minimal-dialog";
+import { Button } from "@/components/ui/minimal-button";
+import { Input } from "@/components/ui/minimal-input";
+import { Label } from "@/components/ui/minimal-label";
 import { Copy, Mail, Send, Clock, Link, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -165,7 +165,7 @@ export default function InviteModal({ isOpen, onClose, roomId, displayName }: In
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onClose={onClose}>
       <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
@@ -209,7 +209,7 @@ export default function InviteModal({ isOpen, onClose, roomId, displayName }: In
                   type="email"
                   placeholder="example@email.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e: any) => setEmail(e.target?.value || '')}
                   className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
                 />
               </div>
@@ -220,7 +220,7 @@ export default function InviteModal({ isOpen, onClose, roomId, displayName }: In
                   type="text"
                   placeholder="招待される方の名前"
                   value={inviteeName}
-                  onChange={(e) => setInviteeName(e.target.value)}
+                  onChange={(e: any) => setInviteeName(e.target?.value || '')}
                   className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
                 />
               </div>

@@ -1408,37 +1408,145 @@ export function useWebRTC(roomId: string, displayName: string): UseWebRTCReturn 
   }, [connectionStatus, requestChatHistory]);
 
   const leaveCall = useCallback(() => {
-    // Stop local stream
+    console.log("🧹 Starting comprehensive cleanup process...");
+    
+    // Stop local stream tracks and remove event listeners
     if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+      localStreamRef.current.getTracks().forEach((track: MediaStreamTrack) => {
+        console.log(`🔇 Stopping track: ${track.kind} (${track.label})`);
+        track.stop();
+        // Remove all event listeners from tracks
+        track.removeEventListener('ended', () => {});
+        track.removeEventListener('mute', () => {});
+        track.removeEventListener('unmute', () => {});
+      });
+      localStreamRef.current = null;
     }
 
-    // Close all peer connections
-    peerConnections.current.forEach((pc: RTCPeerConnection) => pc.close());
+    // Stop screen sharing stream if active
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track: MediaStreamTrack) => {
+        console.log(`🖥️ Stopping screen share track: ${track.kind}`);
+        track.stop();
+        track.removeEventListener('ended', () => {});
+      });
+      screenStreamRef.current = null;
+    }
+
+    // Stop media recorder if active
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      console.log("🎬 Stopping media recorder...");
+      try {
+        mediaRecorderRef.current.stop();
+      } catch (error) {
+        console.warn("Warning: Could not stop media recorder:", error);
+      }
+      mediaRecorderRef.current = null;
+    }
+
+    // Cancel any pending animation frames
+    if (animationFrameIdRef.current) {
+      cancelAnimationFrame(animationFrameIdRef.current);
+      animationFrameIdRef.current = undefined;
+    }
+
+    // Close all peer connections with comprehensive cleanup
+    peerConnections.current.forEach((pc: RTCPeerConnection, participantId: string) => {
+      console.log(`🔌 Closing peer connection for ${participantId}`);
+      
+      // Remove all event listeners before closing
+      pc.removeEventListener('icecandidate', () => {});
+      pc.removeEventListener('track', () => {});
+      pc.removeEventListener('connectionstatechange', () => {});
+      pc.removeEventListener('iceconnectionstatechange', () => {});
+      pc.removeEventListener('icegatheringstatechange', () => {});
+      
+      // Close the connection
+      if (pc.connectionState !== 'closed') {
+        pc.close();
+      }
+    });
     peerConnections.current.clear();
 
-    // Close WebSocket
+    // Clear all remote streams
+    remoteStreams.forEach((stream: MediaStream, participantId: string) => {
+      console.log(`🔇 Cleaning up remote stream for ${participantId}`);
+      stream.getTracks().forEach(track => {
+        track.stop();
+        track.removeEventListener('ended', () => {});
+      });
+    });
+    setRemoteStreams(new Map());
+
+    // Clear retry timeouts
+    clearRetryTimeouts();
+
+    // Close WebSocket with proper cleanup
     if (socketRef.current) {
-      socketRef.current.send(JSON.stringify({
-        type: "leave-room",
-        roomId,
-        participantId: displayName,
-        payload: {}
-      }));
-      socketRef.current.close();
+      // Remove all event listeners before closing
+      socketRef.current.removeEventListener('open', () => {});
+      socketRef.current.removeEventListener('message', () => {});
+      socketRef.current.removeEventListener('close', () => {});
+      socketRef.current.removeEventListener('error', () => {});
+      
+      // Send leave message if connection is still open
+      if (socketRef.current.readyState === WebSocket.OPEN) {
+        try {
+          socketRef.current.send(JSON.stringify({
+            type: "leave-room",
+            roomId,
+            participantId: sessionId.current,
+            payload: {}
+          }));
+        } catch (error) {
+          console.warn("Could not send leave message:", error);
+        }
+      }
+      
+      // Close the connection
+      if (socketRef.current.readyState !== WebSocket.CLOSED) {
+        socketRef.current.close(1000, 'Component unmounting');
+      }
+      socketRef.current = null;
     }
 
+    // Reset all state to initial values
+    setParticipants([]);
+    setLocalStream(null);
+    setIsAudioEnabled(true);
+    setIsVideoEnabled(false);
+    setIsScreenSharing(false);
+    setIsRecording(false);
+    setRecordedChunks([]);
+    setChatMessages([]);
     setConnectionStatus("disconnected");
-  }, [roomId, displayName]);
+    setRetryCount(0);
+    reconnectAttempts.current = 0;
 
-  // Clean up on unmount
+    console.log("✅ Cleanup process completed");
+  }, [roomId, clearRetryTimeouts]);
+
+  // Enhanced cleanup on unmount with comprehensive resource management
   useEffect(() => {
-    return () => {
+    const cleanup = () => {
+      console.log("🔄 Component unmounting - executing cleanup...");
       leaveCall();
-      if (animationFrameIdRef.current) {
-        cancelAnimationFrame(animationFrameIdRef.current);
+      
+      // Additional cleanup for any remaining resources
+      if (typeof window !== 'undefined') {
+        // Clear any global event listeners that might have been added
+        window.removeEventListener('beforeunload', leaveCall);
+        window.removeEventListener('pagehide', leaveCall);
       }
     };
+
+    // Add cleanup on page unload/hide for better UX
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', leaveCall);
+      window.addEventListener('pagehide', leaveCall);
+    }
+    
+    return cleanup;
   }, [leaveCall]);
 
   return {

@@ -1,4 +1,4 @@
-import { createRoot } from "react-dom/client";
+import { render } from "preact";
 import App from "./App";
 import "./index.css";
 
@@ -17,19 +17,18 @@ window.addEventListener('orientationchange', () => {
   setTimeout(setViewportHeight, 100); // Small delay for orientation change
 });
 
-// Error handling for React rendering
+// Error handling for Preact rendering
 try {
   const rootElement = document.getElementById("root");
   if (!rootElement) {
     throw new Error("Root element not found");
   }
   
-  const root = createRoot(rootElement);
-  root.render(<App />);
+  render(<App />, rootElement);
   
-  console.log("✅ MeetSonar React app loaded successfully");
+  console.log("✅ MeetSonar Preact app loaded successfully");
 } catch (error) {
-  console.error("❌ Failed to load MeetSonar React app:", error);
+  console.error("❌ Failed to load MeetSonar Preact app:", error);
   
   // Fallback: show error message in the root element
   const rootElement = document.getElementById("root");

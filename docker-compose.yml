@@ -1,4 +1,27 @@
 services:
+  # Redis Cache & Session Store
+  redis:
+    image: redis:7-alpine
+    container_name: meetsonar-redis
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - meetsonar-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+        reservations:
+          memory: 64m
+
   # PostgreSQL Database
   postgres:
     deploy:
@@ -35,14 +58,19 @@ services:
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://meetsonar:meetsonar_dev_password@postgres:5432/meetsonar
+      REDIS_URL: redis://redis:6379
       PORT: 5000
+      ENABLE_TELEMETRY: "false"
     ports:
       - "5000:5000"
+      - "5001:5001"  # API server port
     volumes:
       - .:/app  # mount source code
       - /app/node_modules  # anonymous volume for dependencies
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - meetsonar-network
@@ -88,3 +116,4 @@ networks:
 
 volumes:
   postgres_data:
+  redis_data:

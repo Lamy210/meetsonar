@@ -62,6 +62,11 @@ export function createWebSocketHandler() {
         
         // Handle different message types
         switch (validatedMessage.type) {
+          case 'ping':
+            // Handle heartbeat ping
+            ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+            console.log(`[${timestamp}] 💓 Heartbeat pong sent to ${ws.data?.sessionId}`);
+            break;
           case 'join-room':
             console.log(`[${timestamp}] 🚪 Processing join-room request`);
             handleJoinRoom(ws, validatedMessage);

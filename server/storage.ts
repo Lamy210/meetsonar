@@ -1,27 +1,27 @@
-import { rooms, participants, chatMessages, invitations, type Room, type Participant, type ChatMessage, type Invitation, type InsertRoom, type InsertParticipant, type InsertChatMessage, type InsertInvitation } from "@shared/schema";
+import { rooms, participants, chatMessages, invitations, type Room, type Participant, type ChatMessage, type Invitation, type NewRoom, type NewParticipant, type NewChatMessage, type NewInvitation } from "@shared/schema-sqlite";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Room operations
   getRoom(id: string): Promise<Room | undefined>;
-  createRoom(room: InsertRoom): Promise<Room>;
+  createRoom(room: NewRoom): Promise<Room>;
   updateRoom(id: string, updates: Partial<Room>): Promise<Room | undefined>;
   deleteRoom(id: string): Promise<boolean>;
 
   // Participant operations
   getParticipants(roomId: string): Promise<Participant[]>;
   getParticipant(roomId: string, participantId: string): Promise<Participant | undefined>;
-  addParticipant(participant: InsertParticipant): Promise<Participant>;
+  addParticipant(participant: NewParticipant): Promise<Participant>;
   updateParticipant(roomId: string, participantId: string, updates: Partial<Participant>): Promise<Participant | undefined>;
   removeParticipant(roomId: string, participantId: string): Promise<boolean>;
 
   // Chat operations
   getChatHistory(roomId: string, limit?: number): Promise<ChatMessage[]>;
-  addChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  addChatMessage(message: NewChatMessage): Promise<ChatMessage>;
 
   // Invitation operations
-  createInvitation(invitation: InsertInvitation): Promise<Invitation>;
+  createInvitation(invitation: NewInvitation): Promise<Invitation>;
   getInvitationByToken(token: string): Promise<Invitation | undefined>;
   getInvitationsByRoom(roomId: string): Promise<Invitation[]>;
   updateInvitationStatus(id: number, status: string): Promise<Invitation | undefined>;
@@ -48,14 +48,14 @@ export class MemStorage implements IStorage {
     return this.rooms.get(id);
   }
 
-  async createRoom(room: InsertRoom): Promise<Room> {
+  async createRoom(room: NewRoom): Promise<Room> {
     const newRoom: Room = {
       ...room,
       hostId: room.hostId || null,
       isActive: room.isActive ?? true,
       maxParticipants: room.maxParticipants ?? 10,
       settings: room.settings || null,
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
     };
     this.rooms.set(room.id, newRoom);
     this.participants.set(room.id, []);
@@ -88,7 +88,7 @@ export class MemStorage implements IStorage {
     return roomParticipants.find(p => p.connectionId === participantId);
   }
 
-  async addParticipant(participant: InsertParticipant): Promise<Participant> {
+  async addParticipant(participant: NewParticipant): Promise<Participant> {
     const roomParticipants = this.participants.get(participant.roomId) || [];
     
     // Check if participant already exists
@@ -110,7 +110,7 @@ export class MemStorage implements IStorage {
       isMuted: participant.isMuted ?? false,
       isVideoEnabled: participant.isVideoEnabled ?? false,
       connectionId: participant.connectionId || null,
-      joinedAt: new Date(),
+      joinedAt: new Date().toISOString(),
     };
 
     // Set as host if first participant
@@ -153,12 +153,12 @@ export class MemStorage implements IStorage {
     return messages.slice(-limit).reverse();
   }
 
-  async addChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+  async addChatMessage(message: NewChatMessage): Promise<ChatMessage> {
     const newMessage: ChatMessage = {
       id: this.chatMessageIdCounter++,
       ...message,
       type: message.type || 'text',
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
     };
 
     const roomMessages = this.chatMessages.get(message.roomId) || [];
@@ -168,7 +168,7 @@ export class MemStorage implements IStorage {
     return newMessage;
   }
 
-  async createInvitation(invitation: InsertInvitation): Promise<Invitation> {
+  async createInvitation(invitation: NewInvitation): Promise<Invitation> {
     const roomInvitations = this.invitations.get(invitation.roomId) || [];
     const newInvitation: Invitation = {
       ...invitation,
@@ -176,7 +176,7 @@ export class MemStorage implements IStorage {
       inviterUserId: invitation.inviterUserId || null,
       inviteeDisplayName: invitation.inviteeDisplayName || null,
       status: invitation.status || 'pending',
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
       respondedAt: null,
     };
 
@@ -205,7 +205,7 @@ export class MemStorage implements IStorage {
         roomInvitations[invitationIndex] = {
           ...roomInvitations[invitationIndex],
           status,
-          respondedAt: new Date(),
+          respondedAt: new Date().toISOString(),
         };
         return roomInvitations[invitationIndex];
       }
@@ -221,7 +221,7 @@ export class DatabaseStorage implements IStorage {
     return room || undefined;
   }
 
-  async createRoom(room: InsertRoom): Promise<Room> {
+  async createRoom(room: NewRoom): Promise<Room> {
     const [newRoom] = await db
       .insert(rooms)
       .values({
@@ -250,7 +250,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(chatMessages).where(eq(chatMessages.roomId, id));
 
     const result = await db.delete(rooms).where(eq(rooms.id, id));
-    return result.rowCount ? result.rowCount > 0 : false;
+    return result.changes > 0;
   }
 
   async getParticipants(roomId: string): Promise<Participant[]> {
@@ -265,7 +265,7 @@ export class DatabaseStorage implements IStorage {
     return participant || undefined;
   }
 
-  async addParticipant(participant: InsertParticipant): Promise<Participant> {
+  async addParticipant(participant: NewParticipant): Promise<Participant> {
     // Check if participant already exists
     const existingParticipant = await this.getParticipant(participant.roomId, participant.connectionId || '');
     if (existingParticipant) {
@@ -306,7 +306,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(participants)
       .where(and(eq(participants.roomId, roomId), eq(participants.connectionId, participantId)));
-    return result.rowCount ? result.rowCount > 0 : false;
+    return result.changes > 0;
   }
 
   async getChatHistory(roomId: string, limit: number = 100): Promise<ChatMessage[]> {
@@ -321,7 +321,7 @@ export class DatabaseStorage implements IStorage {
     return messages.reverse();
   }
 
-  async addChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+  async addChatMessage(message: NewChatMessage): Promise<ChatMessage> {
     const [newMessage] = await db
       .insert(chatMessages)
       .values(message)
@@ -329,12 +329,12 @@ export class DatabaseStorage implements IStorage {
     return newMessage;
   }
 
-  async createInvitation(invitation: InsertInvitation): Promise<Invitation> {
+  async createInvitation(invitation: NewInvitation): Promise<Invitation> {
     const [newInvitation] = await db
       .insert(invitations)
       .values({
         ...invitation,
-        createdAt: new Date(),
+        createdAt: new Date().toISOString(),
       })
       .returning();
     return newInvitation;
@@ -357,7 +357,7 @@ export class DatabaseStorage implements IStorage {
       .update(invitations)
       .set({ 
         status,
-        respondedAt: new Date()
+        respondedAt: new Date().toISOString()
       })
       .where(eq(invitations.id, id))
       .returning();

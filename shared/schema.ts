@@ -126,11 +126,13 @@ export const signalingMessageSchema = z.object({
     'participant-left',
     'participant-updated',
     'chat-message',
-    'chat-history'
+    'chat-history',
+    'ping',
+    'pong'
   ]),
-  roomId: z.string(),
+  roomId: z.string().optional(),
   participantId: z.string().optional(),
-  payload: z.any(),
+  payload: z.any().optional(),
 });
 
 export type SignalingMessage = z.infer<typeof signalingMessageSchema>;

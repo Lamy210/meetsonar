@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/minimal-button";
+import { Input } from "@/components/ui/minimal-input";
+import { Label } from "@/components/ui/minimal-label";
 import { CheckCircle, Users, Video, User, Calendar, Clock } from "lucide-react";
 
 interface RoomInfo {
@@ -237,7 +237,7 @@ export default function JoinPage() {
               type="text"
               placeholder="ミーティングで表示される名前を入力"
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(e) => setDisplayName((e.target as HTMLInputElement).value)}
               className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
             />
             <p className="text-xs text-slate-500 mt-1">

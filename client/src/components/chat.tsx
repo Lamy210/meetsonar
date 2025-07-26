@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/minimal-button";
+import { Input } from "@/components/ui/minimal-input";
+import { ScrollArea } from "@/components/ui/minimal-scroll-area";
 import { Send, MessageSquare } from "lucide-react";
 import type { ChatMessage } from "@shared/schema";
 
@@ -60,7 +60,7 @@ export default function Chat({ roomId, participantId, displayName, isConnected, 
     setNewMessage("");
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: any) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -150,7 +150,7 @@ export default function Chat({ roomId, participantId, displayName, isConnected, 
           <Input
             ref={inputRef}
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e: any) => setNewMessage(e.target?.value || '')}
             onKeyPress={handleKeyPress}
             placeholder="Type a message..."
             className="flex-1 bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-400"

@@ -1,9 +1,23 @@
 import * as React from "react"
 
-import type {
-  ToastActionElement,
-  ToastProps,
-} from "@/components/ui/toast"
+// import type {
+//   ToastActionElement,
+//   ToastProps,
+// } from "@/components/ui/toast"
+
+// 一時的な型定義
+interface ToastProps {
+  id?: string;
+  title?: string;
+  description?: string;
+  variant?: "default" | "destructive";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+interface ToastActionElement {
+  action: React.ReactElement;
+}
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
@@ -155,7 +169,7 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
-      onOpenChange: (open) => {
+      onOpenChange: (open: boolean) => {
         if (!open) dismiss()
       },
     },

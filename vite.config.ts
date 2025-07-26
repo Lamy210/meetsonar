@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import preact from "@preact/preset-vite";
 import path from "path";
 
 // Environment detection for dynamic target setting
@@ -18,10 +18,12 @@ const getBackendTarget = () => {
 
 export default defineConfig({
   plugins: [
-    react(),
+    preact()
   ],
   resolve: {
     alias: {
+      "react": "preact/compat",
+      "react-dom": "preact/compat",
       "@": path.resolve(import.meta.dirname, "client", "src"),
       "@shared": path.resolve(import.meta.dirname, "shared"),
       "@assets": path.resolve(import.meta.dirname, "attached_assets"),
@@ -31,10 +33,44 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
-    // ソースマップを完全に無効化
-    sourcemap: false,
-    // ロールアップ設定でエラーハンドリング強化
+    // ソースマップを本番環境では無効化
+    sourcemap: process.env.NODE_ENV === 'development',
+    // 最適化設定の強化
+    minify: 'terser',
+    target: 'es2020',
+    // チャンク分割によるロード時間最適化（軽量化版）
     rollupOptions: {
+      output: {
+        manualChunks: {
+          // WebRTC関連ライブラリを分離
+          webrtc: ['@/hooks/use-webrtc', '@/stores/webrtc-store'],
+          // 状態管理ライブラリを分離
+          state: ['zustand', 'immer'],
+          // ユーティリティライブラリを分離
+          utils: ['wouter', 'zod', 'swr'],
+          // Preact関連を分離
+          preact: ['preact', '@preact/compat'],
+        },
+        // ファイル名の最適化
+        chunkFileNames: (chunkInfo) => {
+          const facadeModuleId = chunkInfo.facadeModuleId
+            ? chunkInfo.facadeModuleId.split('/').pop()?.replace(/\.[^.]*$/, '')
+            : 'chunk';
+          return `assets/js/${facadeModuleId}-[hash].js`;
+        },
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: (assetInfo) => {
+          const info = assetInfo.name?.split('.') || [];
+          const ext = info[info.length - 1];
+          if (/\.(png|jpe?g|svg|gif|tiff|bmp|ico)$/i.test(assetInfo.name || '')) {
+            return `assets/images/[name]-[hash][extname]`;
+          }
+          if (/\.(woff2?|eot|ttf|otf)$/i.test(assetInfo.name || '')) {
+            return `assets/fonts/[name]-[hash][extname]`;
+          }
+          return `assets/${ext}/[name]-[hash][extname]`;
+        },
+      },
       onwarn(warning, warn) {
         // ソースマップ関連の警告を完全に抑制
         if (warning.code === 'SOURCEMAP_ERROR' || 
@@ -45,7 +81,18 @@ export default defineConfig({
         }
         warn(warning);
       }
-    }
+    },
+    // Terserオプション for より良い圧縮
+    terserOptions: {
+      compress: {
+        drop_console: process.env.NODE_ENV === 'production',
+        drop_debugger: true,
+        pure_funcs: process.env.NODE_ENV === 'production' ? ['console.log', 'console.info'] : [],
+      },
+      mangle: {
+        safari10: true,
+      },
+    },
   },
   // 開発サーバー設定 - パフォーマンス最適化
   server: {

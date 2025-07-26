@@ -6,7 +6,7 @@ import ParticipantItem from "@/components/participant-item";
 import SettingsModal from "@/components/settings-modal";
 import InviteModal from "@/components/invite-modal";
 import { useWebRTC } from "@/hooks/use-webrtc";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/minimal-button";
 import { Video, Users, MessageSquare, Copy, UserPlus, RotateCcw } from "lucide-react";
 import TabChat from "@/components/tab-chat";
 

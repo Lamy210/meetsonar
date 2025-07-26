@@ -73,7 +73,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         inviteeEmail: inviteData.inviteeEmail,
         inviteeDisplayName: inviteData.inviteeDisplayName,
         inviteToken,
-        expiresAt,
+        expiresAt: expiresAt.toISOString(),
       });
 
       // Generate invitation link
@@ -98,7 +98,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if invitation is expired
-      if (new Date() > invitation.expiresAt) {
+      if (new Date() > new Date(invitation.expiresAt)) {
         return res.status(410).json({ error: "Invitation has expired" });
       }
 
@@ -150,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if invitation is expired
-      if (new Date() > invitation.expiresAt) {
+      if (new Date() > new Date(invitation.expiresAt)) {
         return res.status(410).json({ error: "Invitation has expired" });
       }
 

@@ -9,6 +9,7 @@ export interface MediaDevice {
 export interface MediaSettings {
   audioDeviceId: string;
   videoDeviceId: string;
+  outputDeviceId: string;
   videoResolution: "480p" | "720p" | "1080p";
   audioVolume: number;
   echoCancellation: boolean;
@@ -30,6 +31,7 @@ export interface UseMediaSettingsReturn {
 const DEFAULT_SETTINGS: MediaSettings = {
   audioDeviceId: "default",
   videoDeviceId: "default",
+  outputDeviceId: "default",
   videoResolution: "720p",
   audioVolume: 80,
   echoCancellation: true,

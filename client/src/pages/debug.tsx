@@ -22,7 +22,7 @@ console.error = (...args) => {
   originalError(...args);
 };
 
-const WebRTCDebugPage: React.FC = () => {
+const WebRTCDebugPage = () => {
   const [displayLogs, setDisplayLogs] = useState<string[]>([]);
   const [roomId, setRoomId] = useState('debug-room');
   const [displayName, setDisplayName] = useState('DebugUser');
@@ -57,13 +57,13 @@ const WebRTCDebugPage: React.FC = () => {
         <label>Room ID: </label>
         <input 
           value={roomId} 
-          onChange={(e) => setRoomId(e.target.value)}
+          onChange={(e) => setRoomId((e.target as HTMLInputElement).value)}
           disabled={isConnecting}
         />
         <label style={{ marginLeft: '20px' }}>Display Name: </label>
         <input 
           value={displayName} 
-          onChange={(e) => setDisplayName(e.target.value)}
+          onChange={(e) => setDisplayName((e.target as HTMLInputElement).value)}
           disabled={isConnecting}
         />
         <button 

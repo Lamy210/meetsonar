@@ -1,5 +1,5 @@
 import { Mic, MicOff, Video, VideoOff, Monitor, Settings, Phone, MoreVertical, Circle, Square, Download, UserPlus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/minimal-button";
 
 interface CallControlsProps {
   isAudioEnabled: boolean;

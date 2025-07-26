@@ -1,41 +1,53 @@
-// Simple Bun server for MeetSonar
+// Socket.IO enabled Bun server for MeetSonar
+import { createServer } from 'http';
 import { storage } from "./storage";
-import { createWebSocketHandler } from "./websocket-handler";
+import { createSocketIOServer } from "./socketio-handler";
 
 const port = parseInt(process.env.PORT || "5000", 10);
 
 // データベース接続確認
-console.log("Connecting to PostgreSQL database:", process.env.DATABASE_URL?.replace(/\/\/.*@/, "//***@"));
+console.log("Connecting to SQLite database:", process.env.DATABASE_PATH || "data.db");
 
 function log(message: string) {
   const timestamp = new Date().toLocaleTimeString();
   console.log(`${timestamp} [bun] ${message}`);
 }
 
-// CORS対応のヘルパー関数（仮説3: CORS/Origin制限の修正）
+// CORS対応のヘルパー関数
 function addCorsHeaders(headers: HeadersInit = {}): Headers {
   const corsHeaders = new Headers(headers);
   // 開発環境では広い許可、本番環境では制限
   const allowedOrigins = process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com', 'wss://yourdomain.com']
-    : ['*']; // 開発環境では全て許可
+    ? (process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['https://yourdomain.com'])
+    : ['http://localhost:5173', 'http://localhost:3000'];
     
-  corsHeaders.set('Access-Control-Allow-Origin', '*');
+  corsHeaders.set('Access-Control-Allow-Origin', process.env.NODE_ENV === 'production' ? (process.env.FRONTEND_URL || 'https://yourdomain.com') : '*');
   corsHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  corsHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, Upgrade, Connection, Sec-WebSocket-Key, Sec-WebSocket-Version, Sec-WebSocket-Protocol');
+  corsHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin');
   corsHeaders.set('Access-Control-Allow-Credentials', 'true');
   corsHeaders.set('Vary', 'Origin');
   return corsHeaders;
 }
 
+// Create HTTP server for Socket.IO
+const httpServer = createServer();
+
+// Create Socket.IO server
+const io = createSocketIOServer(httpServer);
+
+// Start Socket.IO server
+httpServer.listen(port, '0.0.0.0', () => {
+  log(`Socket.IO server listening on port ${port}`);
+});
+
+// Create Bun server for HTTP API endpoints (on port+1)
+const apiPort = port + 1;
 const server = Bun.serve({
-  port,
+  port: apiPort,
   hostname: "0.0.0.0",
-  // レビュー推奨: WebSocketサーバー最適化設定
   development: process.env.NODE_ENV === 'development',
   maxRequestBodySize: 1024 * 1024 * 10, // 10MB
-  lowMemoryMode: false, // パフォーマンス優先
-  async fetch(req: Request, server: any) {
+  async fetch(req: Request) {
     const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
     const start = Date.now();
     
@@ -45,67 +57,6 @@ const server = Bun.serve({
         status: 204,
         headers: addCorsHeaders()
       });
-    }
-    
-    // WebSocketアップグレード処理
-    if (url.pathname === "/ws") {
-      const upgrade = req.headers.get("upgrade");
-      const connection = req.headers.get("connection");
-      const origin = req.headers.get("origin");
-      
-      console.log("Request to /ws endpoint");
-      console.log("Upgrade header:", upgrade);
-      console.log("Connection header:", connection);
-      console.log("Origin header:", origin);
-      console.log("Method:", req.method);
-      console.log("User-Agent:", req.headers.get("user-agent"));
-      
-      // Origin チェックを緩和（仮説3: CORS/Origin制限の修正）
-      const allowedOrigins = [
-        'http://localhost:5173',
-        'http://localhost:5000', 
-        'http://meetsonar-frontend:5173',
-        'http://127.0.0.1:5173'
-      ];
-      
-      if (origin && process.env.NODE_ENV !== 'development') {
-        if (!allowedOrigins.includes(origin)) {
-          console.warn(`⚠️ WebSocket connection from unauthorized origin: ${origin}`);
-          // 本番環境では厳格にチェック、開発環境では警告のみ
-        }
-      }
-      
-      // WebSocketアップグレードリクエストかチェック
-      if (upgrade?.toLowerCase() === "websocket" && 
-          connection?.toLowerCase().includes("upgrade")) {
-        console.log("WebSocket upgrade request received");
-        console.log("Headers:", Object.fromEntries(req.headers.entries()));
-        
-        const success = server.upgrade(req, {
-          data: {
-            participantId: undefined,
-            roomId: undefined,
-          },
-        });
-        
-        if (!success) {
-          console.error("WebSocket upgrade failed");
-          return new Response("WebSocket upgrade failed", { status: 400 });
-        }
-        
-        console.log("WebSocket upgrade successful");
-        return undefined;
-      } else {
-        // 通常のHTTPリクエストの場合
-        console.log("Non-WebSocket request to /ws endpoint");
-        return new Response("WebSocket endpoint. Use WebSocket protocol.", { 
-          status: 426,
-          headers: addCorsHeaders({
-            "Upgrade": "websocket",
-            "Connection": "Upgrade"
-          })
-        });
-      }
     }
     
     // API routes handling
@@ -209,8 +160,24 @@ const server = Bun.serve({
       status: 404,
       headers: addCorsHeaders()
     });
-  },
-  websocket: createWebSocketHandler(),
+  }
 });
 
-log(`serving on port ${port}`);
+log(`API server serving on port ${apiPort}`);
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  log('SIGTERM received, shutting down gracefully');
+  httpServer.close(() => {
+    log('HTTP server closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  log('SIGINT received, shutting down gracefully');
+  httpServer.close(() => {
+    log('HTTP server closed');
+    process.exit(0);
+  });
+});

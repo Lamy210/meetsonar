@@ -1,7 +1,6 @@
-import React from 'react';
 import { useWebSocketDiagnostics } from '@/hooks/useWebSocketDiagnostics';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/minimal-button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/minimal-card';
 import { CheckCircle, XCircle, Loader2, Play, RotateCcw } from 'lucide-react';
 
 export default function WebSocketDiagnosticsPage() {

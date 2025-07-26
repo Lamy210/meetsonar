@@ -1,10 +1,11 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/minimal-dialog";
+import { Button } from "@/components/ui/minimal-button";
+import { Select } from "@/components/ui/minimal-select";
+import { Label } from "@/components/ui/minimal-label";
+import { Slider } from "@/components/ui/minimal-slider";
+import { Switch } from "@/components/ui/minimal-switch";
 import { useMediaSettings } from "@/hooks/use-media-settings";
+import { MicIcon, VideoIcon, SettingsIcon, XIcon } from "@/components/ui/icons";
 import { RefreshCw, Camera, Mic, Volume2, Play, Square } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 
@@ -78,7 +79,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
   }, []);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onClose={onClose}>
       <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
@@ -106,22 +107,15 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
               <div>
                 <Label className="block text-sm text-slate-400 mb-2">マイク</Label>
                 <Select 
+                  options={[
+                    { value: 'default', label: 'デフォルトマイク' },
+                    { value: 'none', label: 'マイクなし' },
+                    ...audioDevices.map(device => ({ value: device.deviceId, label: device.label }))
+                  ]}
                   value={settings.audioDeviceId} 
-                  onValueChange={(value) => updateSettings({ audioDeviceId: value })}
-                >
-                  <SelectTrigger className="bg-slate-700 border-slate-600">
-                    <SelectValue placeholder="マイクを選択" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-700 border-slate-600">
-                    <SelectItem value="default">デフォルトマイク</SelectItem>
-                    <SelectItem value="none">マイクなし</SelectItem>
-                    {audioDevices.map((device) => (
-                      <SelectItem key={device.deviceId} value={device.deviceId}>
-                        {device.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(value: string) => updateSettings({ audioDeviceId: value })}
+                  className="bg-slate-700 border-slate-600"
+                />
               </div>
 
               <div>
@@ -130,7 +124,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
                 </Label>
                 <Slider
                   value={[settings.audioVolume]}
-                  onValueChange={([value]) => updateSettings({ audioVolume: value })}
+                  onValueChange={(values) => updateSettings({ audioVolume: values[0] })}
                   max={100}
                   step={1}
                   className="w-full"
@@ -143,21 +137,21 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
                   <Label className="text-sm text-slate-400">エコーキャンセレーション</Label>
                   <Switch
                     checked={settings.echoCancellation}
-                    onCheckedChange={(checked) => updateSettings({ echoCancellation: checked })}
+                    onCheckedChange={(checked: boolean) => updateSettings({ echoCancellation: checked })}
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <Label className="text-sm text-slate-400">ノイズ抑制</Label>
                   <Switch
                     checked={settings.noiseSuppression}
-                    onCheckedChange={(checked) => updateSettings({ noiseSuppression: checked })}
+                    onCheckedChange={(checked: boolean) => updateSettings({ noiseSuppression: checked })}
                   />
                 </div>
                 <div className="flex items-center justify-between">
                   <Label className="text-sm text-slate-400">自動ゲイン制御</Label>
                   <Switch
                     checked={settings.autoGainControl}
-                    onCheckedChange={(checked) => updateSettings({ autoGainControl: checked })}
+                    onCheckedChange={(checked: boolean) => updateSettings({ autoGainControl: checked })}
                   />
                 </div>
               </div>
@@ -174,39 +168,29 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
               <div>
                 <Label className="block text-sm text-slate-400 mb-2">カメラ</Label>
                 <Select 
+                  options={[
+                    { value: 'default', label: 'デフォルトカメラ' },
+                    { value: 'none', label: 'カメラなし' },
+                    ...videoDevices.map(device => ({ value: device.deviceId, label: device.label }))
+                  ]}
                   value={settings.videoDeviceId} 
-                  onValueChange={(value) => updateSettings({ videoDeviceId: value })}
-                >
-                  <SelectTrigger className="bg-slate-700 border-slate-600">
-                    <SelectValue placeholder="カメラを選択" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-700 border-slate-600">
-                    <SelectItem value="default">デフォルトカメラ</SelectItem>
-                    <SelectItem value="none">カメラなし</SelectItem>
-                    {videoDevices.map((device) => (
-                      <SelectItem key={device.deviceId} value={device.deviceId}>
-                        {device.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(value: string) => updateSettings({ videoDeviceId: value })}
+                  className="bg-slate-700 border-slate-600"
+                />
               </div>
 
               <div>
                 <Label className="block text-sm text-slate-400 mb-2">解像度</Label>
                 <Select 
+                  options={[
+                    { value: '480p', label: '480p (標準)' },
+                    { value: '720p', label: '720p (HD)' },
+                    { value: '1080p', label: '1080p (Full HD)' }
+                  ]}
                   value={settings.videoResolution} 
-                  onValueChange={(value: "480p" | "720p" | "1080p") => updateSettings({ videoResolution: value })}
-                >
-                  <SelectTrigger className="bg-slate-700 border-slate-600">
-                    <SelectValue placeholder="解像度を選択" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-700 border-slate-600">
-                    <SelectItem value="480p">480p (標準)</SelectItem>
-                    <SelectItem value="720p">720p (HD)</SelectItem>
-                    <SelectItem value="1080p">1080p (Full HD)</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={(value: string) => updateSettings({ videoResolution: value as "480p" | "720p" | "1080p" })}
+                  className="bg-slate-700 border-slate-600"
+                />
               </div>
 
               {/* カメラプレビュー */}
@@ -252,19 +236,15 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
               </h4>
               <div>
                 <Label className="block text-sm text-slate-400 mb-2">出力デバイス</Label>
-                <Select defaultValue="default">
-                  <SelectTrigger className="bg-slate-700 border-slate-600">
-                    <SelectValue placeholder="スピーカーを選択" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-700 border-slate-600">
-                    <SelectItem value="default">デフォルトスピーカー</SelectItem>
-                    {outputDevices.map((device) => (
-                      <SelectItem key={device.deviceId} value={device.deviceId}>
-                        {device.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Select 
+                  options={[
+                    { value: 'default', label: 'デフォルトスピーカー' },
+                    ...outputDevices.map(device => ({ value: device.deviceId, label: device.label }))
+                  ]}
+                  value={settings.outputDeviceId || 'default'} 
+                  onChange={(value: string) => updateSettings({ outputDeviceId: value })}
+                  className="bg-slate-700 border-slate-600"
+                />
               </div>
             </div>
           )}

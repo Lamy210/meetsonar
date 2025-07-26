@@ -42,7 +42,7 @@ export class TalkStorage {
       .update(meetings)
       .set({ isActive: false })
       .where(eq(meetings.meetingId, meetingId));
-    return result.rowCount > 0;
+    return result.changes > 0;
   }
 
   // 参加者管理
@@ -101,7 +101,7 @@ export class TalkStorage {
           eq(meetingParticipants.participantId, participantId)
         )
       );
-    return result.rowCount > 0;
+    return result.changes > 0;
   }
 
   // チャットメッセージ管理
@@ -148,7 +148,7 @@ export class TalkStorage {
         updatedAt: new Date() 
       })
       .where(eq(talkMessages.id, messageId));
-    return result.rowCount > 0;
+    return result.changes > 0;
   }
 
   // ユーティリティ関数
@@ -168,7 +168,7 @@ export class TalkStorage {
         updatedAt: new Date() 
       })
       .where(eq(talkMessages.meetingId, meetingId));
-    return result.rowCount > 0;
+    return result.changes > 0;
   }
 
   // 統計・分析用
@@ -197,7 +197,7 @@ export class TalkStorage {
       messageCount: messages.length,
       lastActivity: messages.length > 0 ? 
         Math.max(...messages.map((m: any) => new Date(m.createdAt).getTime())) : 
-        new Date(meeting.createdAt).getTime()
+        meeting.createdAt ? new Date(meeting.createdAt).getTime() : Date.now()
     };
   }
 }

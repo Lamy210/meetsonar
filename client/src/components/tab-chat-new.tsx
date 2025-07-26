@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { useState, useEffect, useRef, useCallback } from "preact/hooks";
+import type { TargetedEvent } from "preact/compat";
+import { Button } from "@/components/ui/minimal-button";
+import { Input } from "@/components/ui/minimal-input";
+import { ScrollArea } from "@/components/ui/minimal-scroll-area";
 import { Send, MessageSquare } from "lucide-react";
 import type { ChatMessage } from "@shared/schema";
 
@@ -65,7 +66,7 @@ export default function TabChat({ roomId, participantId, displayName, connection
         }
     }, [newMessage, isConnected, sendMessage]);
 
-    const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    const handleKeyPress = useCallback((e: any) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSendMessage();
@@ -193,7 +194,7 @@ export default function TabChat({ roomId, participantId, displayName, connection
                         <Input
                             ref={inputRef}
                             value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
+                            onChange={(e: any) => setNewMessage(e.target?.value || '')}
                             onKeyPress={handleKeyPress}
                             placeholder="メッセージを入力..."
                             className="bg-slate-700 border-slate-600 text-slate-200 placeholder-slate-400 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
