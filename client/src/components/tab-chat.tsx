@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/minimal-button";
 import { Input } from "@/components/ui/minimal-input";
 import { ScrollArea } from "@/components/ui/minimal-scroll-area";
 import { Send, MessageSquare } from "lucide-react";
-import type { ChatMessage } from "@shared/schema";
+import type { ChatMessage } from "@shared/schema-sqlite";
 
 interface TabChatProps {
     roomId: string;
@@ -18,22 +18,22 @@ interface TabChatProps {
 
 export default function TabChat({ roomId, participantId, displayName, userStableId, connectionStatus, sendMessage, chatMessages, requestChatHistory }: TabChatProps) {
     console.log("=== TabChat Render ===", {
-        roomId, 
-        participantId, 
-        displayName, 
-        connectionStatus, 
+        roomId,
+        participantId,
+        displayName,
+        connectionStatus,
         chatMessagesCount: chatMessages?.length || 0,
         chatMessagesType: typeof chatMessages,
         isArray: Array.isArray(chatMessages),
         actualMessages: chatMessages
     });
-    
+
     // chatMessagesが配列でない場合の防御的処理
     const safeMessages = Array.isArray(chatMessages) ? chatMessages : [];
-    
+
     // 強制的に状態を更新するためのカウンター
     const [forceUpdate, setForceUpdate] = useState(0);
-    
+
     const [newMessage, setNewMessage] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -47,9 +47,9 @@ export default function TabChat({ roomId, participantId, displayName, userStable
     const scrollToBottom = useCallback((force = false) => {
         if (force || !userHasScrolled) {
             setTimeout(() => {
-                messagesEndRef.current?.scrollIntoView({ 
+                messagesEndRef.current?.scrollIntoView({
                     behavior: "smooth",
-                    block: "nearest" 
+                    block: "nearest"
                 });
             }, 50);
         }
@@ -59,15 +59,15 @@ export default function TabChat({ roomId, participantId, displayName, userStable
     const handleScroll = useCallback(() => {
         const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
         if (!scrollElement) return;
-        
+
         const currentScrollTop = scrollElement.scrollTop;
         const scrollHeight = scrollElement.scrollHeight;
         const clientHeight = scrollElement.clientHeight;
-        
+
         // 最下部から100px以内でなければユーザーがスクロールしたと判定
         const isNearBottom = (scrollHeight - currentScrollTop - clientHeight) < 100;
         const isAtTop = currentScrollTop < 50;
-        
+
         if (!isNearBottom && currentScrollTop < lastScrollTopRef.current) {
             // 上向きにスクロールした場合（しかし最上部ではない）
             if (!isAtTop) {
@@ -77,7 +77,7 @@ export default function TabChat({ roomId, participantId, displayName, userStable
             // 最下部近くに戻った場合はリセット
             setUserHasScrolled(false);
         }
-        
+
         lastScrollTopRef.current = currentScrollTop;
     }, []);
 
@@ -140,17 +140,17 @@ export default function TabChat({ roomId, participantId, displayName, userStable
             participantId,
             displayName
         });
-        
+
         if (!newMessage.trim() || !isConnected) {
-            console.warn("Cannot send message:", { 
-                hasMessage: !!newMessage.trim(), 
-                isConnected 
+            console.warn("Cannot send message:", {
+                hasMessage: !!newMessage.trim(),
+                isConnected
             });
             return;
         }
 
         console.log("Calling sendMessage function...");
-        
+
         // メッセージにユーザー識別情報を保存（localStorage）
         const messageKey = `msg_${Date.now()}_${userStableId}`;
         localStorage.setItem(messageKey, JSON.stringify({
@@ -160,13 +160,13 @@ export default function TabChat({ roomId, participantId, displayName, userStable
             message: newMessage.trim(),
             timestamp: Date.now()
         }));
-        
+
         sendMessage(newMessage.trim());
         setNewMessage("");
-        
+
         // メッセージ送信時は必ずスクロールしてスクロール状態をリセット
         setUserHasScrolled(false);
-        
+
         // メッセージ送信後にチャット履歴をリフレッシュして強制スクロール
         setTimeout(() => {
             console.log("Refreshing chat history after sending message...");
@@ -189,7 +189,7 @@ export default function TabChat({ roomId, participantId, displayName, userStable
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-900 min-h-0" data-testid="chat-container" role="main" aria-label="チャット画面">            
+        <div className="flex flex-col h-full bg-slate-900 min-h-0" data-testid="chat-container" role="main" aria-label="チャット画面">
             {/* チャットヘッダー */}
             <div className="px-3 sm:px-4 py-2 border-b border-slate-700/50 bg-slate-800/50 flex-shrink-0">
                 <div className="flex items-center justify-between">
@@ -203,15 +203,15 @@ export default function TabChat({ roomId, participantId, displayName, userStable
                         <div className="text-xs text-slate-500">
                             自動同期
                         </div>
-                        <div 
-                            className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} 
+                        <div
+                            className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}
                             data-testid="connection-status"
                             aria-label={isConnected ? "接続中" : "未接続"}
                             role="status"
                         ></div>
                     </div>
                 </div>
-                
+
                 {/* デバッグ情報パネル（開発中のみ表示） */}
                 <div className="mt-2 p-2 bg-slate-900/50 rounded text-xs text-slate-300">
                     <div className="grid grid-cols-2 gap-1">
@@ -240,7 +240,7 @@ export default function TabChat({ roomId, participantId, displayName, userStable
                                 {safeMessages.map((message, index) => {
                                     // より安定したメッセージ識別方法（複数の方法を組み合わせ）
                                     const storedDisplayName = localStorage.getItem("displayName");
-                                    
+
                                     // ローカルストレージからの送信済みメッセージチェック
                                     const isRecentlySentMessage = () => {
                                         const recentThreshold = 60000; // 1分以内
@@ -250,7 +250,7 @@ export default function TabChat({ roomId, participantId, displayName, userStable
                                             if (key && key.startsWith('msg_')) {
                                                 try {
                                                     const storedMsg = JSON.parse(localStorage.getItem(key) || '{}');
-                                                    if (storedMsg.message === message.message && 
+                                                    if (storedMsg.message === message.message &&
                                                         storedMsg.displayName === message.displayName &&
                                                         Math.abs(messageTime - storedMsg.timestamp) < recentThreshold) {
                                                         return true;
@@ -262,7 +262,7 @@ export default function TabChat({ roomId, participantId, displayName, userStable
                                         }
                                         return false;
                                     };
-                                    
+
                                     const isOwnMessage = (
                                         // 1. participantIdで判定（最優先）
                                         message.participantId === participantId ||
@@ -273,7 +273,7 @@ export default function TabChat({ roomId, participantId, displayName, userStable
                                         // 4. 最近送信したメッセージかチェック
                                         isRecentlySentMessage()
                                     );
-                                    
+
                                     console.log("Message ownership check:", {
                                         messageId: message.id,
                                         messageParticipantId: message.participantId,
@@ -285,22 +285,22 @@ export default function TabChat({ roomId, participantId, displayName, userStable
                                         isOwnMessage,
                                         matchedBy: (
                                             message.participantId === participantId ? "participantId" :
-                                            message.displayName === displayName ? "displayName" :
-                                            message.displayName === storedDisplayName ? "storedDisplayName" :
-                                            "none"
+                                                message.displayName === displayName ? "displayName" :
+                                                    message.displayName === storedDisplayName ? "storedDisplayName" :
+                                                        "none"
                                         )
                                     });
                                     const prevMessage = index > 0 ? safeMessages[index - 1] : null;
                                     const nextMessage = index < safeMessages.length - 1 ? safeMessages[index + 1] : null;
-                                    
+
                                     const showAvatar = !isOwnMessage && (
-                                        !prevMessage || 
+                                        !prevMessage ||
                                         prevMessage.participantId !== message.participantId ||
                                         new Date(message.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 300000
                                     );
-                                    
+
                                     const showTime = (
-                                        !nextMessage || 
+                                        !nextMessage ||
                                         nextMessage.participantId !== message.participantId ||
                                         new Date(nextMessage.createdAt).getTime() - new Date(message.createdAt).getTime() > 300000
                                     );
@@ -308,9 +308,8 @@ export default function TabChat({ roomId, participantId, displayName, userStable
                                     return (
                                         <div
                                             key={message.id || `${message.createdAt}-${index}`}
-                                            className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} ${
-                                                showAvatar || index === 0 ? 'mt-4' : 'mt-1'
-                                            }`}
+                                            className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} ${showAvatar || index === 0 ? 'mt-4' : 'mt-1'
+                                                }`}
                                             data-testid={isOwnMessage ? "chat-message-own" : "chat-message-other"}
                                         >
                                             {/* 左側のアバター（相手のメッセージのみ） */}
@@ -336,11 +335,10 @@ export default function TabChat({ roomId, participantId, displayName, userStable
 
                                                 {/* メッセージバブル */}
                                                 <div
-                                                    className={`px-4 py-3 text-sm max-w-full break-words shadow-md relative ${
-                                                        isOwnMessage
-                                                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl rounded-br-lg' 
+                                                    className={`px-4 py-3 text-sm max-w-full break-words shadow-md relative ${isOwnMessage
+                                                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl rounded-br-lg'
                                                             : 'bg-slate-700 text-slate-100 rounded-2xl rounded-bl-lg'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {/* デバッグ用の小さなマーカー */}
                                                     {isOwnMessage && (
@@ -353,9 +351,8 @@ export default function TabChat({ roomId, participantId, displayName, userStable
 
                                                 {/* タイムスタンプ */}
                                                 {showTime && (
-                                                    <div className={`text-xs mt-1 text-slate-500 ${
-                                                        isOwnMessage ? 'text-right pr-1' : 'text-left pl-1'
-                                                    }`}>
+                                                    <div className={`text-xs mt-1 text-slate-500 ${isOwnMessage ? 'text-right pr-1' : 'text-left pl-1'
+                                                        }`}>
                                                         {formatTime(message.createdAt)}
                                                     </div>
                                                 )}

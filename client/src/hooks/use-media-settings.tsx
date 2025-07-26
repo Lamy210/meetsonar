@@ -65,19 +65,19 @@ export function useMediaSettings(): UseMediaSettingsReturn {
   const refreshDevices = useCallback(async () => {
     try {
       setIsLoading(true);
-      
+
       // Request permissions first
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: true, 
-        audio: true 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
       });
-      
+
       // Get device list
       const devices = await navigator.mediaDevices.enumerateDevices();
-      
+
       // Stop the temporary stream
       stream.getTracks().forEach(track => track.stop());
-      
+
       // Categorize devices
       const audioInputs: MediaDevice[] = [];
       const videoInputs: MediaDevice[] = [];
@@ -142,7 +142,7 @@ export function useMediaSettings(): UseMediaSettingsReturn {
 
   const getMediaConstraints = useCallback((): MediaStreamConstraints => {
     const resolution = RESOLUTION_CONSTRAINTS[settings.videoResolution];
-    
+
     return {
       video: settings.videoDeviceId === "none" ? false : {
         deviceId: settings.videoDeviceId === "default" ? undefined : { exact: settings.videoDeviceId },

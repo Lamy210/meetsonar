@@ -2,10 +2,10 @@ import { test, expect, describe, beforeAll, afterAll } from "bun:test";
 import { TEST_CONFIG, sleep, generateTestUser } from "../setup";
 
 describe("WebSocket Connection Tests", () => {
-  
+
   test("should connect to WebSocket server", async () => {
     const ws = new WebSocket(TEST_CONFIG.WS_URL);
-    
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error("WebSocket connection timeout"));
@@ -26,7 +26,7 @@ describe("WebSocket Connection Tests", () => {
 
   test("should handle invalid messages gracefully", async () => {
     const ws = new WebSocket(TEST_CONFIG.WS_URL);
-    
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error("Invalid message test timeout"));
@@ -37,7 +37,7 @@ describe("WebSocket Connection Tests", () => {
       ws.onopen = () => {
         // Send invalid JSON
         ws.send("invalid json");
-        
+
         // Send valid JSON but invalid message structure
         ws.send(JSON.stringify({ invalid: "message" }));
       };
@@ -63,7 +63,7 @@ describe("WebSocket Connection Tests", () => {
   test("should handle participant join/leave", async () => {
     const user = generateTestUser("test-participant");
     const ws = new WebSocket(TEST_CONFIG.WS_URL);
-    
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error("Participant join/leave test timeout"));
@@ -122,7 +122,7 @@ describe("WebSocket Connection Tests", () => {
   test("should handle connection cleanup on disconnect", async () => {
     const user = generateTestUser("cleanup-test");
     const ws = new WebSocket(TEST_CONFIG.WS_URL);
-    
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error("Connection cleanup test timeout"));

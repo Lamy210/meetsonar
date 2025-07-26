@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/minimal-button";
 import { Input } from "@/components/ui/minimal-input";
 import { ScrollArea } from "@/components/ui/minimal-scroll-area";
 import { Send, MessageSquare } from "lucide-react";
-import type { ChatMessage } from "@shared/schema";
+import type { ChatMessage } from "@shared/schema-sqlite";
 
 interface ChatProps {
   roomId: string;
@@ -127,8 +127,8 @@ export default function Chat({ roomId, participantId, displayName, isConnected, 
                   )}
                   <div
                     className={`px-3 py-2 rounded-lg text-sm ${isOwnMessage
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-slate-700 text-slate-200'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-slate-700 text-slate-200'
                       }`}
                   >
                     <div>{message.message}</div>

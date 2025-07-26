@@ -6,7 +6,7 @@ describe("Basic Chat Tests", () => {
   test("should connect to WebSocket and send a basic message", async () => {
     const ws = new WebSocket(TEST_CONFIG.WS_URL);
     let messageReceived = false;
-    
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         ws.close();
@@ -15,7 +15,7 @@ describe("Basic Chat Tests", () => {
 
       ws.onopen = () => {
         console.log("WebSocket connected");
-        
+
         // Join room first
         ws.send(JSON.stringify({
           type: "join-room",
@@ -28,7 +28,7 @@ describe("Basic Chat Tests", () => {
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
         console.log("Received:", message.type);
-        
+
         if (message.type === "participants-list") {
           // Now send a chat message
           ws.send(JSON.stringify({
@@ -42,7 +42,7 @@ describe("Basic Chat Tests", () => {
             }
           }));
         }
-        
+
         if (message.type === "chat-message") {
           messageReceived = true;
           clearTimeout(timeout);
@@ -62,11 +62,11 @@ describe("Basic Chat Tests", () => {
   test("should handle multiple participants basic flow", async () => {
     const user1Ws = new WebSocket(TEST_CONFIG.WS_URL);
     const user2Ws = new WebSocket(TEST_CONFIG.WS_URL);
-    
+
     let user1Ready = false;
     let user2Ready = false;
     let chatMessageExchanged = false;
-    
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         user1Ws.close();
@@ -86,11 +86,11 @@ describe("Basic Chat Tests", () => {
 
       user1Ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        
+
         if (message.type === "participants-list") {
           user1Ready = true;
         }
-        
+
         if (message.type === "chat-message" && message.payload?.displayName === "User Two") {
           chatMessageExchanged = true;
           clearTimeout(timeout);
@@ -113,10 +113,10 @@ describe("Basic Chat Tests", () => {
 
       user2Ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        
+
         if (message.type === "participants-list") {
           user2Ready = true;
-          
+
           // When both users are ready, send a message
           if (user1Ready && user2Ready) {
             setTimeout(() => {

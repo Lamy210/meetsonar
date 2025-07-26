@@ -35,7 +35,7 @@ export function useSocketIO(roomId?: string, displayName?: string): UseSocketIOR
     // Determine WebSocket URL
     const isProduction = import.meta.env.PROD;
     let socketUrl: string;
-    
+
     if (isProduction) {
       const protocol = window.location.protocol === "https:" ? "https:" : "http:";
       socketUrl = `${protocol}//${window.location.host}`;
@@ -55,13 +55,13 @@ export function useSocketIO(roomId?: string, displayName?: string): UseSocketIOR
       timeout: 20000,
       forceNew: true,
       transports: ['websocket', 'polling'],
-      
+
       // Query parameters
       query: {
         roomId,
         displayName,
       },
-      
+
       // Authentication (for future use)
       auth: {
         // token: localStorage.getItem('auth_token'), // Add JWT token if available
@@ -80,7 +80,7 @@ export function useSocketIO(roomId?: string, displayName?: string): UseSocketIOR
     socket.on('disconnect', (reason) => {
       console.log('❌ Socket.IO disconnected:', reason);
       setConnectionStatus('disconnected');
-      
+
       if (reason === 'io server disconnect') {
         // Server disconnected the socket, reconnect manually
         socket.connect();
@@ -129,15 +129,15 @@ export function useSocketIO(roomId?: string, displayName?: string): UseSocketIOR
       } else {
         // Add single participant if full list not provided
         addParticipant({
-          id: data.participantId,
+          id: Date.now(), // 一意のIDとして現在時刻を使用
           displayName: data.payload?.displayName || 'Unknown',
-          joinedAt: new Date(),
+          joinedAt: new Date().toISOString(),
           roomId: data.roomId || roomId,
           userId: null,
           isHost: false,
           isMuted: false,
           isVideoEnabled: true,
-          connectionId: null,
+          connectionId: data.participantId,
         });
       }
     });

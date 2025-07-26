@@ -1,14 +1,16 @@
 # MeetSonar
 
-🎥 **リアルタイムビデオ### 💬 チャット機能
+🎥 **リアルタイムビデオ通話アプリケーション** - WebRTCベースのプロフェッショナル会議プラットフォーム
+
+### 💬 チャット機能
 - **リアルタイムメッセージング** - WebSocket使用のリアルタイムチャット
-- **メッセージ履歴** - PostgreSQLによる永続化
+- **メッセージ履歴** - SQLiteによる永続化
 - **システム通知** - 参加・退出の自動通知
-- **自動スクロール** - 新着メッセージの自動追跡リケーション** - WebRTCベースのプロフェッショナル会議プラットフォーム
+- **自動スクロール** - 新着メッセージの自動追跡
 
 ![MeetSonar Demo](https://img.shields.io/badge/Status-Active%20Development-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue)
-![React](https://img.shields.io/badge/React-18+-blue)
+![Preact](https://img.shields.io/badge/Preact-10+-purple)
 ![WebRTC](https://img.shields.io/badge/WebRTC-Enabled-orange)
 
 ## 📋 概要
@@ -55,22 +57,22 @@ MeetSonarは、現代的なビデオ会議のニーズに応えるWebRTCベー�
 ## 🛠️ 技術スタック
 
 ### フロントエンド
-- **React 18** - UIライブラリ
+- **Preact 10** - 軽量UIライブラリ（React互換）
 - **TypeScript** - 型安全性
 - **Vite** - 開発・ビルドツール
 - **Tailwind CSS** - CSSフレームワーク
 - **Radix UI** - アクセシブルなUIコンポーネント
 - **Wouter** - 軽量クライアントサイドルーティング
-- **TanStack Query** - サーバー状態管理
+- **SWR** - 軽量サーバー状態管理
 - **WebRTC API** - ブラウザネイティブのリアルタイム通信
 - **Lucide React** - アイコンライブラリ
 
 ### バックエンド
-- **Bun** - JavaScript/TypeScriptランタイム（メイン）
-- **Bun.serve()** - ネイティブHTTP/WebSocketサーバー
-- **WebSocket API** - リアルタイム双方向通信
+- **Bun** - JavaScript/TypeScriptランタイム（開発）
+- **Node.js HTTP Server** - createServer() + Socket.IO統合
+- **Socket.IO** - リアルタイム双方向通信
 - **Drizzle ORM** - 型安全データベースORM
-- **PostgreSQL** - リレーショナルデータベース
+- **SQLite** - 軽量データベース（WALモード）
 - **Zod** - スキーマバリデーション
 
 ### 開発・ビルドツール
@@ -105,13 +107,14 @@ make up-watch
 **アクセスURL:**
 - 🌐 **フロントエンド**: http://localhost:5173
 - 🔧 **バックエンドAPI**: http://localhost:5000
-- 🗄️ **PostgreSQL**: localhost:5432
+- 🗄️ **SQLite DB**: data/meetsonar.db
+- 📦 **Redis**: localhost:6379
 
 詳細なDocker設定については [README-DOCKER.md](./README-DOCKER.md) を参照してください。
 
 ### ローカル開発環境
 
-Dockerを使用しない場合：
+SQLiteを使用したシンプルな開発環境：
 
 ```bash
 # リポジトリをクローン

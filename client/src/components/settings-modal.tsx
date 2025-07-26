@@ -40,7 +40,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
     try {
       const constraints = getMediaConstraints();
       console.log("Starting preview with constraints:", constraints);
-      
+
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       setPreviewStream(stream);
       setIsPreviewActive(true);
@@ -106,13 +106,13 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
             <div className="space-y-4">
               <div>
                 <Label className="block text-sm text-slate-400 mb-2">マイク</Label>
-                <Select 
+                <Select
                   options={[
                     { value: 'default', label: 'デフォルトマイク' },
                     { value: 'none', label: 'マイクなし' },
                     ...audioDevices.map(device => ({ value: device.deviceId, label: device.label }))
                   ]}
-                  value={settings.audioDeviceId} 
+                  value={settings.audioDeviceId}
                   onChange={(value: string) => updateSettings({ audioDeviceId: value })}
                   className="bg-slate-700 border-slate-600"
                 />
@@ -167,13 +167,13 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
             <div className="space-y-4">
               <div>
                 <Label className="block text-sm text-slate-400 mb-2">カメラ</Label>
-                <Select 
+                <Select
                   options={[
                     { value: 'default', label: 'デフォルトカメラ' },
                     { value: 'none', label: 'カメラなし' },
                     ...videoDevices.map(device => ({ value: device.deviceId, label: device.label }))
                   ]}
-                  value={settings.videoDeviceId} 
+                  value={settings.videoDeviceId}
                   onChange={(value: string) => updateSettings({ videoDeviceId: value })}
                   className="bg-slate-700 border-slate-600"
                 />
@@ -181,13 +181,13 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
 
               <div>
                 <Label className="block text-sm text-slate-400 mb-2">解像度</Label>
-                <Select 
+                <Select
                   options={[
                     { value: '480p', label: '480p (標準)' },
                     { value: '720p', label: '720p (HD)' },
                     { value: '1080p', label: '1080p (Full HD)' }
                   ]}
-                  value={settings.videoResolution} 
+                  value={settings.videoResolution}
                   onChange={(value: string) => updateSettings({ videoResolution: value as "480p" | "720p" | "1080p" })}
                   className="bg-slate-700 border-slate-600"
                 />
@@ -236,12 +236,12 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
               </h4>
               <div>
                 <Label className="block text-sm text-slate-400 mb-2">出力デバイス</Label>
-                <Select 
+                <Select
                   options={[
                     { value: 'default', label: 'デフォルトスピーカー' },
                     ...outputDevices.map(device => ({ value: device.deviceId, label: device.label }))
                   ]}
-                  value={settings.outputDeviceId || 'default'} 
+                  value={settings.outputDeviceId || 'default'}
                   onChange={(value: string) => updateSettings({ outputDeviceId: value })}
                   className="bg-slate-700 border-slate-600"
                 />
@@ -261,7 +261,7 @@ export default function SettingsModal({ isOpen, onClose, onSettingsChange }: Set
         </div>
 
         <div className="flex space-x-3 pt-4">
-          <Button 
+          <Button
             className="flex-1 bg-blue-600 hover:bg-blue-700"
             onClick={handleSave}
           >

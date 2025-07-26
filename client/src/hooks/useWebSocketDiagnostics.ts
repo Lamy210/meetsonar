@@ -38,41 +38,53 @@ export const useWebSocketDiagnostics = () => {
 
   const diagnose = useCallback(async () => {
     if (isRunning) return;
-    
+
     setIsRunning(true);
     const diagnosticResults: DiagnosticResult[] = [];
 
-    // 1. 直接バックエンド接続テスト
-    console.log('🔍 Testing direct backend connection...');
+    // 1. Socket.IO接続テスト
+    console.log('🔍 Testing Socket.IO connection...');
     try {
       const startTime = Date.now();
-      const directWs = new WebSocket('ws://localhost:5000/ws');
-      await waitForConnection(directWs);
+      // Socket.IOを使用
+      const { io } = await import('socket.io-client');
+      const socket = io('http://localhost:5000', {
+        transports: ['websocket'],
+        forceNew: true,
+        reconnection: false
+      });
+      
+      await new Promise((resolve, reject) => {
+        socket.on('connect', () => resolve(void 0));
+        socket.on('connect_error', reject);
+        setTimeout(() => reject(new Error('Connection timeout')), 5000);
+      });
+      
+      const endTime = Date.now();
+      socket.disconnect();
       const latency = Date.now() - startTime;
-      
-      diagnosticResults.push({ 
-        type: 'direct', 
+
+      diagnosticResults.push({
+        type: 'direct',
         status: 'success',
-        latency 
+        latency
       });
-      
-      // テストメッセージ送信
-      directWs.send(JSON.stringify({
-        type: 'join-room',
+
+      // Socket.IOテストイベント送信
+      socket.emit('join-room', {
         roomId: 'diagnostic-room',
-        participantId: 'diagnostic-user',
         displayName: 'Diagnostic User'
-      }));
-      
-      setTimeout(() => directWs.close(), 1000);
-      console.log('✅ Direct connection successful');
-    } catch (error) {
-      diagnosticResults.push({ 
-        type: 'direct', 
-        status: 'error', 
-        error 
       });
-      console.error('❌ Direct connection failed:', error);
+
+      setTimeout(() => socket.disconnect(), 1000);
+      console.log('✅ Socket.IO connection successful');
+    } catch (error) {
+      diagnosticResults.push({
+        type: 'direct',
+        status: 'error',
+        error
+      });
+      console.error('❌ Socket.IO connection failed:', error);
     }
 
     // 2. Viteプロキシ経由テスト
@@ -82,13 +94,13 @@ export const useWebSocketDiagnostics = () => {
       const proxyWs = new WebSocket('ws://localhost:5173/ws');
       await waitForConnection(proxyWs);
       const latency = Date.now() - startTime;
-      
-      diagnosticResults.push({ 
-        type: 'proxy', 
+
+      diagnosticResults.push({
+        type: 'proxy',
         status: 'success',
-        latency 
+        latency
       });
-      
+
       // テストメッセージ送信
       proxyWs.send(JSON.stringify({
         type: 'join-room',
@@ -96,14 +108,14 @@ export const useWebSocketDiagnostics = () => {
         participantId: 'diagnostic-proxy-user',
         displayName: 'Diagnostic Proxy User'
       }));
-      
+
       setTimeout(() => proxyWs.close(), 1000);
       console.log('✅ Proxy connection successful');
     } catch (error) {
-      diagnosticResults.push({ 
-        type: 'proxy', 
-        status: 'error', 
-        error 
+      diagnosticResults.push({
+        type: 'proxy',
+        status: 'error',
+        error
       });
       console.error('❌ Proxy connection failed:', error);
     }
@@ -117,10 +129,10 @@ export const useWebSocketDiagnostics = () => {
     setResults([]);
   }, []);
 
-  return { 
-    diagnose, 
+  return {
+    diagnose,
     reset,
-    isRunning, 
-    results 
+    isRunning,
+    results
   };
 };

@@ -32,8 +32,12 @@
     "moduleResolution": "node",
     "baseUrl": ".",
     "paths": {
-      "react": ["./node_modules/preact/compat/dist/compat"],
-      "react-dom": ["./node_modules/preact/compat/dist/compat"],
+      "react": [
+        "./node_modules/preact/compat/dist/compat"
+      ],
+      "react-dom": [
+        "./node_modules/preact/compat/dist/compat"
+      ],
       "@/*": [
         "./client/src/*"
       ],

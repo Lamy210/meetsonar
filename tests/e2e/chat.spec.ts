@@ -7,7 +7,7 @@ test.describe('Chat E2E Tests', () => {
     // Create two browser contexts for two users
     const context1 = await browser.newContext();
     const context2 = await browser.newContext();
-    
+
     const page1 = await context1.newPage();
     const page2 = await context2.newPage();
 
@@ -46,7 +46,7 @@ test.describe('Chat E2E Tests', () => {
     // Verify message ordering and styling
     const aliceMessages = page1.locator('[data-testid="chat-message-own"]');
     const bobMessagesOnAlicePage = page1.locator('[data-testid="chat-message-other"]');
-    
+
     await expect(aliceMessages).toContainText(aliceMessage);
     await expect(bobMessagesOnAlicePage).toContainText(bobMessage);
 
@@ -59,7 +59,7 @@ test.describe('Chat E2E Tests', () => {
     const context1 = await browser.newContext();
     const context2 = await browser.newContext();
     const context3 = await browser.newContext();
-    
+
     const page1 = await context1.newPage();
     const page2 = await context2.newPage();
     const page3 = await context3.newPage();
@@ -126,10 +126,10 @@ test.describe('Chat E2E Tests', () => {
     // Check if own message has correct styling (right aligned, blue)
     const ownMessage = page.locator('[data-testid="chat-message-own"]').first();
     await expect(ownMessage).toBeVisible();
-    
+
     // Check message content
     await expect(ownMessage).toContainText('Test message for styling');
-    
+
     // Verify timestamp is displayed
     await expect(ownMessage.locator('[data-testid="message-timestamp"]')).toBeVisible();
   });
@@ -143,7 +143,7 @@ test.describe('Chat E2E Tests', () => {
 
     // Note: This test would need more sophisticated setup to actually test
     // network disconnection and reconnection scenarios
-    
+
     // For now, just verify the UI elements are present
     await expect(page.locator('[data-testid="chat-tab"]')).toBeVisible();
     await expect(page.locator('[data-testid="participant-tab"]')).toBeVisible();

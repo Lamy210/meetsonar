@@ -5,7 +5,8 @@
 
 /* Update CSS custom property with JavaScript on resize/orientation change */
 .full-height {
-  height: 100vh; /* Fallback for older browsers */
+  height: 100vh;
+  /* Fallback for older browsers */
   height: calc(var(--vh, 1vh) * 100);
   min-height: 100vh;
   min-height: calc(var(--vh, 1vh) * 100);
@@ -26,10 +27,12 @@
 body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden; /* Prevent horizontal scroll only */
+  overflow-x: hidden;
+  /* Prevent horizontal scroll only */
 }
 
 #root {
   width: 100%;
-  overflow-x: hidden; /* Prevent horizontal scroll only */
+  overflow-x: hidden;
+  /* Prevent horizontal scroll only */
 }

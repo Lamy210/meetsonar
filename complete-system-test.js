@@ -16,7 +16,7 @@ async function createRoom() {
         name: 'Final Test Room'
       })
     });
-    
+
     if (response.ok) {
       const room = await response.json();
       console.log('✅ Room created:', room);
@@ -42,7 +42,7 @@ class UserSession {
   async connect() {
     return new Promise((resolve, reject) => {
       console.log(`[${this.name}] 🔗 Connecting...`);
-      
+
       this.ws = new WebSocket('ws://localhost:5000/ws', {
         headers: {
           'Origin': 'http://localhost:5173',
@@ -77,21 +77,21 @@ class UserSession {
 
   joinRoom() {
     if (!this.connected) return;
-    
+
     const message = {
       type: 'join-room',
       roomId: testRoomId,
       participantId: this.participantId,
       payload: { displayName: this.name }
     };
-    
+
     console.log(`[${this.name}] 🚪 Joining room...`);
     this.ws.send(JSON.stringify(message));
   }
 
   sendChatMessage(text) {
     if (!this.connected) return;
-    
+
     const message = {
       type: 'chat-message',
       roomId: testRoomId,
@@ -101,21 +101,21 @@ class UserSession {
         displayName: this.name
       }
     };
-    
+
     console.log(`[${this.name}] 💬 Sending: "${text}"`);
     this.ws.send(JSON.stringify(message));
   }
 
   requestChatHistory() {
     if (!this.connected) return;
-    
+
     const message = {
       type: 'chat-history',
       roomId: testRoomId,
       participantId: this.participantId,
       payload: {}
     };
-    
+
     console.log(`[${this.name}] 📚 Requesting chat history...`);
     this.ws.send(JSON.stringify(message));
   }
@@ -143,7 +143,7 @@ async function runCompleteTest() {
 
   // Create room
   await createRoom();
-  
+
   // Create users
   const users = [
     new UserSession('Alice', 'user1'),
@@ -162,13 +162,13 @@ async function runCompleteTest() {
     // Phase 2: Chat interaction
     console.log('\n=== Phase 2: Chat interaction ===');
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     users[0].sendChatMessage('Hello everyone! 👋');
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     users[1].sendChatMessage('Hi Alice! How are you?');
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     users[2].sendChatMessage('Great to be here! 🎉');
     await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -181,10 +181,10 @@ async function runCompleteTest() {
     console.log('\n=== Phase 4: User leaving and rejoining ===');
     users[1].disconnect();
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     await users[1].connect();
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     users[1].sendChatMessage('I\'m back! 🔄');
     await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -198,7 +198,7 @@ async function runCompleteTest() {
     // Cleanup
     console.log('\n=== Cleanup ===');
     users.forEach(user => user.disconnect());
-    
+
     console.log('\n✅ Complete system test finished successfully!');
 
   } catch (error) {

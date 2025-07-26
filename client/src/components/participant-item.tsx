@@ -1,5 +1,5 @@
 import { Mic, MicOff, Video as VideoIcon, VideoOff } from "lucide-react";
-import type { Participant } from "@shared/schema";
+import type { Participant } from "@shared/schema-sqlite";
 
 interface ParticipantItemProps {
   participant: Participant;

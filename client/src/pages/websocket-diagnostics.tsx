@@ -39,8 +39,8 @@ export default function WebSocketDiagnosticsPage() {
         </div>
 
         <div className="mb-6 flex gap-4">
-          <Button 
-            onClick={diagnose} 
+          <Button
+            onClick={diagnose}
             disabled={isRunning}
             className="flex items-center gap-2"
           >
@@ -51,9 +51,9 @@ export default function WebSocketDiagnosticsPage() {
             )}
             {isRunning ? '診断実行中...' : '診断開始'}
           </Button>
-          
-          <Button 
-            onClick={reset} 
+
+          <Button
+            onClick={reset}
             variant="outline"
             disabled={isRunning}
             className="flex items-center gap-2"
@@ -78,13 +78,13 @@ export default function WebSocketDiagnosticsPage() {
                     <div className="font-semibold mb-2">
                       ステータス: {result.status === 'success' ? '成功' : 'エラー'}
                     </div>
-                    
+
                     {result.latency && (
                       <div className="text-sm mb-2">
                         レイテンシ: {result.latency}ms
                       </div>
                     )}
-                    
+
                     {result.error && (
                       <div className="text-sm">
                         <div className="font-medium mb-1">エラー詳細:</div>
@@ -93,17 +93,17 @@ export default function WebSocketDiagnosticsPage() {
                         </pre>
                       </div>
                     )}
-                    
+
                     {result.status === 'success' && (
                       <div className="text-sm">
                         接続は正常に確立されました
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="mt-3 text-xs text-gray-400">
-                    接続先: {result.type === 'direct' 
-                      ? 'ws://localhost:5000/ws' 
+                    接続先: {result.type === 'direct'
+                      ? 'ws://localhost:5000/ws'
                       : 'ws://localhost:5173/ws (→ backend:5000)'
                     }
                   </div>

@@ -13,6 +13,6 @@ export function shutdownTelemetry() {
 
 // No-op SDK for compatibility
 export const sdk = {
-  start: () => {},
+  start: () => { },
   shutdown: () => Promise.resolve(),
 };

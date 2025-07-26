@@ -5,7 +5,7 @@ describe("WebSocket Debug Tests", () => {
 
   test("should connect and show error details", async () => {
     const ws = new WebSocket(TEST_CONFIG.WS_URL);
-    
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         ws.close();
@@ -14,7 +14,7 @@ describe("WebSocket Debug Tests", () => {
 
       ws.onopen = () => {
         console.log("✅ WebSocket connected successfully");
-        
+
         // Send join-room message
         const joinMessage = {
           type: "join-room",
@@ -22,7 +22,7 @@ describe("WebSocket Debug Tests", () => {
           participantId: "debug-user",
           payload: { displayName: "Debug User" }
         };
-        
+
         console.log("📤 Sending:", JSON.stringify(joinMessage));
         ws.send(JSON.stringify(joinMessage));
       };
@@ -30,11 +30,11 @@ describe("WebSocket Debug Tests", () => {
       ws.onmessage = (event) => {
         console.log("📨 Received:", event.data);
         const message = JSON.parse(event.data);
-        
+
         if (message.type === "error") {
           console.log("❌ Error message:", message.message);
         }
-        
+
         clearTimeout(timeout);
         ws.close();
         resolve("Message received");
@@ -55,10 +55,10 @@ describe("WebSocket Debug Tests", () => {
   test("should test simple HTTP call first", async () => {
     const response = await fetch(`${TEST_CONFIG.API_BASE_URL}/api/rooms/debug-room/participants`);
     const data = await response.json();
-    
+
     console.log("HTTP Response:", response.status);
     console.log("HTTP Data:", data);
-    
+
     expect(response.status).toBe(200);
     expect(Array.isArray(data)).toBe(true);
   });

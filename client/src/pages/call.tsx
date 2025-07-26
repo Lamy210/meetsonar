@@ -13,7 +13,7 @@ import TabChat from "@/components/tab-chat";
 export default function Call() {
   const { roomId } = useParams();
   const [, setLocation] = useLocation();
-  
+
   // roomIdが存在しない場合は早期リターン
   if (!roomId) {
     return (
@@ -38,17 +38,17 @@ export default function Call() {
   const nameFromUrl = urlParams.get("displayName") || urlParams.get("name");
   const invitedBy = urlParams.get("invitedBy") || urlParams.get("inviter");
   const inviteeEmail = urlParams.get("email");
-  
+
   console.log("URL params:", Object.fromEntries(urlParams.entries()));
   console.log("Name from URL:", nameFromUrl);
   console.log("Invited by:", invitedBy);
   console.log("Invitee email:", inviteeEmail);
-  
+
   if (nameFromUrl) {
     localStorage.setItem("displayName", nameFromUrl);
   }
   const displayName = localStorage.getItem("displayName") || `User-${Math.random().toString(36).substr(2, 5)}`;
-  
+
   // 招待情報をlocalStorageに保存（チャットなどで使用）
   if (invitedBy) {
     localStorage.setItem("invitedBy", invitedBy);
@@ -56,7 +56,7 @@ export default function Call() {
   if (inviteeEmail) {
     localStorage.setItem("inviteeEmail", inviteeEmail);
   }
-  
+
   console.log("Final displayName:", displayName);
 
   // ユーザー識別用の安定したIDを生成・保存
@@ -140,7 +140,7 @@ export default function Call() {
       connectionStatus,
       participantId
     });
-    
+
     if (currentTab === "chat") {
       setUnreadChatCount(0);
       setLastChatCount(chatMessages.length);
@@ -176,8 +176,8 @@ export default function Call() {
             <p>Connection Status: {connectionStatus}</p>
             <p>Participant ID: {participantId || 'Not assigned'}</p>
           </div>
-          <button 
-            onClick={() => window.location.reload()} 
+          <button
+            onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
           >
             Reload Page
@@ -252,11 +252,10 @@ export default function Call() {
                     console.log("Participants tab clicked");
                     setCurrentTab("participants");
                   }}
-                  className={`text-xs sm:text-sm font-medium transition-all duration-200 py-2 px-2 sm:px-4 rounded-md z-10 relative ${
-                    currentTab === "participants" 
-                      ? "bg-slate-700 text-white shadow-md" 
-                      : "bg-transparent text-slate-300 hover:text-white hover:bg-slate-700/50"
-                  }`}
+                  className={`text-xs sm:text-sm font-medium transition-all duration-200 py-2 px-2 sm:px-4 rounded-md z-10 relative ${currentTab === "participants"
+                    ? "bg-slate-700 text-white shadow-md"
+                    : "bg-transparent text-slate-300 hover:text-white hover:bg-slate-700/50"
+                    }`}
                   data-testid="participant-tab"
                   style={{ minHeight: '36px' }}
                 >
@@ -270,11 +269,10 @@ export default function Call() {
                     console.log("Chat tab clicked");
                     setCurrentTab("chat");
                   }}
-                  className={`text-xs sm:text-sm font-medium relative transition-all duration-200 py-2 px-2 sm:px-4 rounded-md z-10 ${
-                    currentTab === "chat" 
-                      ? "bg-slate-700 text-white shadow-md" 
-                      : "bg-transparent text-slate-300 hover:text-white hover:bg-slate-700/50"
-                  }`}
+                  className={`text-xs sm:text-sm font-medium relative transition-all duration-200 py-2 px-2 sm:px-4 rounded-md z-10 ${currentTab === "chat"
+                    ? "bg-slate-700 text-white shadow-md"
+                    : "bg-transparent text-slate-300 hover:text-white hover:bg-slate-700/50"
+                    }`}
                   data-testid="chat-tab"
                   style={{ minHeight: '36px' }}
                 >
@@ -293,10 +291,9 @@ export default function Call() {
             {/* Fixed Content Container */}
             <div className="flex-1 overflow-hidden relative z-0">
               {/* Participants Panel */}
-              <div 
-                className={`absolute inset-0 flex flex-col transition-opacity duration-200 z-10 ${
-                  currentTab === "participants" ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-                }`}
+              <div
+                className={`absolute inset-0 flex flex-col transition-opacity duration-200 z-10 ${currentTab === "participants" ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                  }`}
                 data-testid="participant-list"
               >
                 {/* 参加者リストヘッダー */}
@@ -337,10 +334,9 @@ export default function Call() {
               </div>
 
               {/* Chat Panel */}
-              <div 
-                className={`absolute inset-0 transition-opacity duration-200 z-10 ${
-                  currentTab === "chat" ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-                }`}
+              <div
+                className={`absolute inset-0 transition-opacity duration-200 z-10 ${currentTab === "chat" ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                  }`}
               >
                 <TabChat
                   roomId={roomId}
@@ -382,14 +378,14 @@ export default function Call() {
       </div>
 
       {/* Modals */}
-      <SettingsModal 
-        isOpen={showSettings} 
+      <SettingsModal
+        isOpen={showSettings}
         onClose={() => setShowSettings(false)}
         onSettingsChange={refreshMediaSettings}
       />
-      
-      <InviteModal 
-        isOpen={showInvite} 
+
+      <InviteModal
+        isOpen={showInvite}
         onClose={() => setShowInvite(false)}
         roomId={roomId}
         displayName={displayName}

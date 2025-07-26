@@ -25,7 +25,7 @@ interface InvitationData {
 export default function InvitePage() {
   const { token } = useParams();
   const [, setLocation] = useLocation();
-  
+
   const [invitation, setInvitation] = useState<InvitationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,7 @@ export default function InvitePage() {
   const fetchInvitation = async () => {
     try {
       const response = await fetch(`/api/invitations/${token}`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to load invitation');
@@ -53,7 +53,7 @@ export default function InvitePage() {
 
       const data = await response.json();
       setInvitation(data);
-      
+
       // Pre-fill display name if available
       if (data.invitation.inviteeDisplayName) {
         setDisplayName(data.invitation.inviteeDisplayName);
@@ -91,7 +91,7 @@ export default function InvitePage() {
       }
 
       const data = await response.json();
-      
+
       if (action === 'accept' && data.joinLink) {
         // Redirect to the meeting room
         window.location.href = data.joinLink;
@@ -125,7 +125,7 @@ export default function InvitePage() {
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto" />
           <h1 className="text-2xl font-bold">招待が見つかりません</h1>
           <p className="text-slate-400">{error || "招待リンクが無効か期限切れです。"}</p>
-          <Button 
+          <Button
             onClick={() => setLocation('/')}
             className="bg-primary hover:bg-primary/90"
           >
@@ -148,7 +148,7 @@ export default function InvitePage() {
           <p className="text-slate-400">
             この招待は {expiresAt.toLocaleDateString()} {expiresAt.toLocaleTimeString()} に期限切れになりました。
           </p>
-          <Button 
+          <Button
             onClick={() => setLocation('/')}
             className="bg-primary hover:bg-primary/90"
           >
@@ -182,7 +182,7 @@ export default function InvitePage() {
                   <p className="font-medium">{invitation.invitation.inviterDisplayName}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center space-x-3">
                 <Video className="w-5 h-5 text-slate-400" />
                 <div>
@@ -237,7 +237,7 @@ export default function InvitePage() {
                 </>
               )}
             </Button>
-            
+
             <Button
               onClick={() => respondToInvitation('decline')}
               disabled={responding}

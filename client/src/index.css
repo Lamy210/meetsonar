@@ -75,10 +75,12 @@
 }
 
 @layer components {
+
   /* Layout utilities for better screen handling */
   .full-screen-container {
     height: 100vh;
-    height: 100dvh; /* Use dynamic viewport height if supported */
+    height: 100dvh;
+    /* Use dynamic viewport height if supported */
     min-height: 100vh;
     min-height: 100dvh;
   }

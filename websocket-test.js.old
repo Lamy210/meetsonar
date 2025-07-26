@@ -1,0 +1,51 @@
+// DEPRECATED: このファイルは古いWebSocket実装用のテストです
+// 現在のSocket.IO実装のテストには test-websocket-direct.js を使用してください
+
+// WebSocket接続テストスクリプト（廃止予定）
+import WebSocket from 'ws';
+
+console.log('⚠️  このテストは廃止予定です。Socket.IOテストには test-websocket-direct.js を使用してください');
+
+const testWebSocket = () => {
+  console.log('Testing legacy WebSocket connection...');
+
+  // 1. 直接バックエンドに接続（現在は無効）
+  console.log('\n1. Testing direct backend connection (ws://localhost:5000/ws) - DEPRECATED');
+  // const ws1 = new WebSocket('ws://localhost:5000/ws');
+
+  ws1.on('open', () => {
+    console.log('✅ Direct backend connection: SUCCESS');
+    ws1.close();
+  });
+
+  ws1.on('error', (error) => {
+    console.log('❌ Direct backend connection: FAILED');
+    console.log('Error:', error.message);
+  });
+
+  ws1.on('close', (code, reason) => {
+    console.log(`Direct backend connection closed: ${code} ${reason}`);
+  });
+
+  // 2. Viteプロキシ経由で接続
+  setTimeout(() => {
+    console.log('\n2. Testing Vite proxy connection (ws://localhost:5173/ws)');
+    const ws2 = new WebSocket('ws://localhost:5173/ws');
+
+    ws2.on('open', () => {
+      console.log('✅ Vite proxy connection: SUCCESS');
+      ws2.close();
+    });
+
+    ws2.on('error', (error) => {
+      console.log('❌ Vite proxy connection: FAILED');
+      console.log('Error:', error.message);
+    });
+
+    ws2.on('close', (code, reason) => {
+      console.log(`Vite proxy connection closed: ${code} ${reason}`);
+    });
+  }, 1000);
+};
+
+testWebSocket();

@@ -90,13 +90,13 @@ export class MemStorage implements IStorage {
 
   async addParticipant(participant: NewParticipant): Promise<Participant> {
     const roomParticipants = this.participants.get(participant.roomId) || [];
-    
+
     // Check if participant already exists
-    const existingParticipant = roomParticipants.find(p => 
-      p.connectionId === participant.connectionId || 
+    const existingParticipant = roomParticipants.find(p =>
+      p.connectionId === participant.connectionId ||
       (p.displayName === participant.displayName && p.connectionId === participant.connectionId)
     );
-    
+
     if (existingParticipant) {
       console.log(`Participant ${participant.connectionId} already exists in room ${participant.roomId}, returning existing`);
       return existingParticipant;
@@ -288,7 +288,7 @@ export class DatabaseStorage implements IStorage {
         connectionId: participant.connectionId || null,
       })
       .returning();
-    
+
     console.log(`Added new participant ${participant.connectionId} to room ${participant.roomId}`);
     return newParticipant;
   }
@@ -355,7 +355,7 @@ export class DatabaseStorage implements IStorage {
   async updateInvitationStatus(id: number, status: string): Promise<Invitation | undefined> {
     const [updatedInvitation] = await db
       .update(invitations)
-      .set({ 
+      .set({
         status,
         respondedAt: new Date().toISOString()
       })

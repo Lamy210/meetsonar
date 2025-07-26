@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { User, Video as VideoIcon } from "lucide-react";
-import type { Participant } from "@shared/schema";
+import type { Participant } from "@shared/schema-sqlite";
 
 interface VideoGridProps {
   localStream: MediaStream | null;

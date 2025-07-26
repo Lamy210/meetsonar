@@ -1,6 +1,6 @@
 import * as schema from "@shared/schema-sqlite";
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+import Database from 'bun:sqlite';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import path from 'path';
 
@@ -9,13 +9,15 @@ const dbPath = process.env.DATABASE_PATH || path.join(process.cwd(), 'data.db');
 
 console.log('Connecting to SQLite database:', dbPath);
 
-// Create SQLite connection
-const sqlite = new Database(dbPath);
+// Create SQLite connection using Bun's built-in sqlite
+const sqliteRaw = new Database(dbPath);
+// Cast to any for Drizzle compatibility
+const sqlite = sqliteRaw as any;
 
 // Enable foreign keys
-sqlite.pragma('foreign_keys = ON');
+sqlite.run('PRAGMA foreign_keys = ON');
 
-// Create drizzle instance
+// Create drizzle instance (casting sqlite to any to satisfy type)
 const db = drizzle(sqlite, { schema });
 
 // Initialize database (create tables if they don't exist)
@@ -27,7 +29,7 @@ try {
     created_at INTEGER NOT NULL DEFAULT (unixepoch()),
     max_participants INTEGER DEFAULT 4
   )`);
-  
+
   db.run(`CREATE TABLE IF NOT EXISTS participants (
     id TEXT PRIMARY KEY,
     room_id TEXT NOT NULL,
@@ -36,7 +38,7 @@ try {
     is_host INTEGER DEFAULT 0,
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
   )`);
-  
+
   db.run(`CREATE TABLE IF NOT EXISTS chat_messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     room_id TEXT NOT NULL,
@@ -46,7 +48,7 @@ try {
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
     FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE
   )`);
-  
+
   db.run(`CREATE TABLE IF NOT EXISTS invitations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     room_id TEXT NOT NULL,
@@ -56,7 +58,7 @@ try {
     responded_at INTEGER,
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
   )`);
-  
+
   console.log('SQLite database initialized successfully');
 } catch (error) {
   console.error('Failed to initialize SQLite database:', error);

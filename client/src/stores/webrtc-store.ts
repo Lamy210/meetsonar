@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { subscribeWithSelector } from 'zustand/middleware';
-import type { Participant, ChatMessage } from "@shared/schema";
+import type { Socket } from 'socket.io-client';
+import type { Participant, ChatMessage } from "@shared/schema-sqlite";
 
 // WebRTC接続状態の型定義
 export type ConnectionStatus = "connecting" | "connected" | "disconnected" | "failed";
@@ -22,33 +23,33 @@ interface WebRTCState {
   displayName: string | null;
   participantId: string | null;
   connectionStatus: ConnectionStatus;
-  
+
   // Participants and streams
   participants: Participant[];
   localStream: MediaStream | null;
   remoteStreams: Map<string, MediaStream>;
   peerConnections: Map<string, PeerConnectionInfo>;
-  
+
   // Media controls
   isAudioEnabled: boolean;
   isVideoEnabled: boolean;
   isScreenSharing: boolean;
   screenStream: MediaStream | null;
-  
+
   // Recording
   isRecording: boolean;
   recordedChunks: Blob[];
   mediaRecorder: MediaRecorder | null;
-  
+
   // Chat
   chatMessages: ChatMessage[];
   unreadCount: number;
-  
-  // WebSocket
-  socket: WebSocket | null;
+
+  // Socket.IO connection
+  socket: Socket | null;
   reconnectAttempts: number;
   maxRetries: number;
-  
+
   // Error handling
   lastError: string | null;
   errors: Array<{ id: string; message: string; timestamp: number; type: 'connection' | 'media' | 'peer' | 'chat' }>;
@@ -58,55 +59,55 @@ interface WebRTCState {
 interface WebRTCActions {
   // Connection management
   setConnectionStatus: (status: ConnectionStatus) => void;
-  setSocket: (socket: WebSocket | null) => void;
+  setSocket: (socket: Socket | null) => void;
   incrementReconnectAttempts: () => void;
   resetReconnectAttempts: () => void;
-  
+
   // Room management
   joinRoom: (roomId: string, displayName: string, participantId: string) => void;
   leaveRoom: () => void;
-  
+
   // Participants
   addParticipant: (participant: Participant) => void;
   removeParticipant: (participantId: string) => void;
   updateParticipant: (participantId: string, updates: Partial<Participant>) => void;
   setParticipants: (participants: Participant[]) => void;
-  
+
   // Streams
   setLocalStream: (stream: MediaStream | null) => void;
   addRemoteStream: (participantId: string, stream: MediaStream) => void;
   removeRemoteStream: (participantId: string) => void;
   setScreenStream: (stream: MediaStream | null) => void;
-  
+
   // Peer connections
   addPeerConnection: (participantId: string, connection: RTCPeerConnection, stream?: MediaStream) => void;
   removePeerConnection: (participantId: string) => void;
   updatePeerConnectionState: (participantId: string, connectionState: RTCPeerConnectionState, iceConnectionState?: RTCIceConnectionState) => void;
   updatePeerActivity: (participantId: string) => void;
-  
+
   // Media controls
   toggleAudio: () => void;
   toggleVideo: () => void;
   setAudioEnabled: (enabled: boolean) => void;
   setVideoEnabled: (enabled: boolean) => void;
   setScreenSharing: (sharing: boolean) => void;
-  
+
   // Recording
   startRecording: (recorder: MediaRecorder) => void;
   stopRecording: () => void;
   addRecordedChunk: (chunk: Blob) => void;
   clearRecordedChunks: () => void;
-  
+
   // Chat
   addChatMessage: (message: ChatMessage) => void;
   setChatMessages: (messages: ChatMessage[]) => void;
   clearUnreadCount: () => void;
-  
+
   // Error handling
   addError: (message: string, type: 'connection' | 'media' | 'peer' | 'chat') => void;
   clearError: (errorId: string) => void;
   clearAllErrors: () => void;
-  
+
   // Cleanup
   reset: () => void;
   cleanup: () => void;
@@ -118,28 +119,28 @@ const initialState: WebRTCState = {
   displayName: null,
   participantId: null,
   connectionStatus: "disconnected",
-  
+
   participants: [],
   localStream: null,
   remoteStreams: new Map(),
   peerConnections: new Map(),
-  
+
   isAudioEnabled: true,
   isVideoEnabled: false,
   isScreenSharing: false,
   screenStream: null,
-  
+
   isRecording: false,
   recordedChunks: [],
   mediaRecorder: null,
-  
+
   chatMessages: [],
   unreadCount: 0,
-  
+
   socket: null,
   reconnectAttempts: 0,
   maxRetries: 5,
-  
+
   lastError: null,
   errors: [],
 };
@@ -158,9 +159,7 @@ export const useWebRTCStore = create<WebRTCState & WebRTCActions>()(
         }
       }),
 
-      setSocket: (socket) => set((state) => {
-        state.socket = socket;
-      }),
+      setSocket: (socket) => set({ socket }),
 
       incrementReconnectAttempts: () => set((state) => {
         state.reconnectAttempts += 1;
@@ -350,7 +349,7 @@ export const useWebRTCStore = create<WebRTCState & WebRTCActions>()(
         };
         state.errors.push(error);
         state.lastError = message;
-        
+
         // Keep only last 10 errors to prevent memory buildup
         if (state.errors.length > 10) {
           state.errors = state.errors.slice(-10);
@@ -400,9 +399,9 @@ export const useWebRTCStore = create<WebRTCState & WebRTCActions>()(
           }
         }
 
-        // Close WebSocket
-        if (state.socket && state.socket.readyState !== WebSocket.CLOSED) {
-          state.socket.close(1000, 'Cleanup');
+        // Disconnect Socket.IO
+        if (state.socket && state.socket.connected) {
+          state.socket.disconnect();
         }
 
         // Reset to initial state

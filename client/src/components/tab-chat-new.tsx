@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/minimal-button";
 import { Input } from "@/components/ui/minimal-input";
 import { ScrollArea } from "@/components/ui/minimal-scroll-area";
 import { Send, MessageSquare } from "lucide-react";
-import type { ChatMessage } from "@shared/schema";
+import type { ChatMessage } from "@shared/schema-sqlite";
 
 interface TabChatProps {
     roomId: string;
@@ -18,22 +18,22 @@ interface TabChatProps {
 
 export default function TabChat({ roomId, participantId, displayName, connectionStatus, sendMessage, chatMessages, requestChatHistory }: TabChatProps) {
     console.log("=== TabChat Render ===", {
-        roomId, 
-        participantId, 
-        displayName, 
-        connectionStatus, 
+        roomId,
+        participantId,
+        displayName,
+        connectionStatus,
         chatMessagesCount: chatMessages?.length || 0,
         chatMessagesType: typeof chatMessages,
         isArray: Array.isArray(chatMessages),
         actualMessages: chatMessages
     });
-    
+
     // chatMessagesが配列でない場合の防御的処理
     const safeMessages = Array.isArray(chatMessages) ? chatMessages : [];
-    
+
     // 強制的に状態を更新するためのカウンター
     const [forceUpdate, setForceUpdate] = useState(0);
-    
+
     const [newMessage, setNewMessage] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +79,7 @@ export default function TabChat({ roomId, participantId, displayName, connection
     };
 
     return (
-        <div className="grid grid-rows-[auto_1fr_auto] h-full bg-slate-900 min-h-0" data-testid="chat-container">            
+        <div className="grid grid-rows-[auto_1fr_auto] h-full bg-slate-900 min-h-0" data-testid="chat-container">
             {/* チャットヘッダー */}
             <div className="px-4 py-3 border-b border-slate-700/50 bg-slate-800/50">
                 <div className="flex items-center justify-between">
@@ -90,7 +90,7 @@ export default function TabChat({ roomId, participantId, displayName, connection
                         </p>
                     </div>
                     <div className="flex items-center space-x-2">
-                        <button 
+                        <button
                             onClick={() => {
                                 console.log("Manual refresh button clicked");
                                 requestChatHistory();
@@ -120,11 +120,11 @@ export default function TabChat({ roomId, participantId, displayName, connection
                                 const isOwnMessage = message.participantId === participantId;
                                 const prevMessage = index > 0 ? safeMessages[index - 1] : null;
                                 const nextMessage = index < safeMessages.length - 1 ? safeMessages[index + 1] : null;
-                                
+
                                 // 同じ送信者の連続メッセージかチェック
                                 const isSameSender = prevMessage?.participantId === message.participantId;
                                 const isNextSameSender = nextMessage?.participantId === message.participantId;
-                                
+
                                 // アバターとタイムスタンプの表示条件
                                 const showAvatar = !isSameSender;
                                 const showTime = !isNextSameSender;
@@ -157,20 +157,18 @@ export default function TabChat({ roomId, participantId, displayName, connection
 
                                             {/* メッセージバブル */}
                                             <div
-                                                className={`px-4 py-3 text-sm max-w-full break-words shadow-md transition-all duration-200 ${
-                                                    isOwnMessage
-                                                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl rounded-br-lg hover:shadow-lg' 
+                                                className={`px-4 py-3 text-sm max-w-full break-words shadow-md transition-all duration-200 ${isOwnMessage
+                                                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl rounded-br-lg hover:shadow-lg'
                                                         : 'bg-slate-700 text-slate-100 rounded-2xl rounded-bl-lg hover:bg-slate-600'
-                                                }`}
+                                                    }`}
                                             >
                                                 {message.message}
                                             </div>
 
                                             {/* タイムスタンプ */}
                                             {showTime && (
-                                                <div className={`text-xs mt-1 text-slate-500 ${
-                                                    isOwnMessage ? 'text-right pr-1' : 'text-left pl-1'
-                                                }`}>
+                                                <div className={`text-xs mt-1 text-slate-500 ${isOwnMessage ? 'text-right pr-1' : 'text-left pl-1'
+                                                    }`}>
                                                     {formatTime(message.createdAt)}
                                                 </div>
                                             )}

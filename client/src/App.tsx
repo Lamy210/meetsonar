@@ -1,3 +1,5 @@
+// TODO: Wouter (React router) は Preact と型互換性がないため、一時的に型チェック無効化
+// 将来的にpreact-routerまたは@preact/router等に置き換える必要がある
 // @ts-nocheck
 import { Switch, Route } from "wouter";
 import NotFound from "@/pages/not-found";
@@ -11,22 +13,14 @@ import WebSocketDiagnosticsPage from "@/pages/websocket-diagnostics";
 function Router() {
   return (
     <Switch>
-      {/* @ts-ignore */}
-      <Route path="/" component={Lobby as any} />
-      {/* @ts-ignore */}
-      <Route path="/debug" component={WebRTCDebugPage as any} />
-      {/* @ts-ignore */}
-      <Route path="/ws-diagnostics" component={WebSocketDiagnosticsPage as any} />
-      {/* @ts-ignore */}
-      <Route path="/invite/:token" component={InvitePage as any} />
-      {/* @ts-ignore */}
-      <Route path="/join/:roomId" component={Call as any} />
-      {/* @ts-ignore */}
-      <Route path="/room/:roomId" component={Call as any} />
-      {/* @ts-ignore */}
-      <Route path="/call/:roomId" component={Call as any} />
-      {/* @ts-ignore */}
-      <Route component={NotFound as any} />
+      <Route path="/" component={Lobby} />
+      <Route path="/debug" component={WebRTCDebugPage} />
+      <Route path="/ws-diagnostics" component={WebSocketDiagnosticsPage} />
+      <Route path="/invite/:token" component={InvitePage} />
+      <Route path="/join/:roomId" component={Call} />
+      <Route path="/room/:roomId" component={Call} />
+      <Route path="/call/:roomId" component={Call} />
+      <Route component={NotFound} />
     </Switch>
   );
 }

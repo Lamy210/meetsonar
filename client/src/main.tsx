@@ -23,13 +23,13 @@ try {
   if (!rootElement) {
     throw new Error("Root element not found");
   }
-  
+
   render(<App />, rootElement);
-  
+
   console.log("✅ MeetSonar Preact app loaded successfully");
 } catch (error) {
   console.error("❌ Failed to load MeetSonar Preact app:", error);
-  
+
   // Fallback: show error message in the root element
   const rootElement = document.getElementById("root");
   if (rootElement) {

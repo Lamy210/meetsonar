@@ -5,13 +5,13 @@ import path from "path";
 // Environment detection for dynamic target setting
 const getBackendTarget = () => {
   // Docker環境検知
-  const isDocker = process.env.NODE_ENV === 'development' && 
-                   process.env.DOCKER_ENV === 'true';
-  
+  const isDocker = process.env.NODE_ENV === 'development' &&
+    process.env.DOCKER_ENV === 'true';
+
   if (isDocker) {
     return "http://meetsonar-backend:5000";
   }
-  
+
   // ローカル環境では直接localhost
   return "http://localhost:5000";
 };
@@ -73,10 +73,10 @@ export default defineConfig({
       },
       onwarn(warning, warn) {
         // ソースマップ関連の警告を完全に抑制
-        if (warning.code === 'SOURCEMAP_ERROR' || 
-            warning.code === 'CIRCULAR_DEPENDENCY' ||
-            warning.message?.includes('sourcemap') ||
-            warning.message?.includes('source map')) {
+        if (warning.code === 'SOURCEMAP_ERROR' ||
+          warning.code === 'CIRCULAR_DEPENDENCY' ||
+          warning.message?.includes('sourcemap') ||
+          warning.message?.includes('source map')) {
           return;
         }
         warn(warning);
@@ -118,7 +118,7 @@ export default defineConfig({
         followRedirects: false,
         ignorePath: false,
         xfwd: true,
-        
+
         // 詳細なエラーハンドリング（レビュー推奨）
         configure: (proxy: any, options: any) => {
           proxy.on('error', (err: any, req: any, res: any) => {
@@ -130,23 +130,23 @@ export default defineConfig({
               headers: req?.headers
             });
           });
-          
+
           proxy.on('proxyReqWs', (proxyReq: any, req: any, socket: any, options: any, head: any) => {
             console.log('🔄 WebSocket handshake request:', {
               url: req.url,
               headers: req.headers,
               upgrade: req.headers.upgrade
             });
-            
+
             // WebSocketハンドシェイクヘッダーの確実な転送（レビュー推奨）
             proxyReq.setHeader('Connection', 'Upgrade');
             proxyReq.setHeader('Upgrade', 'websocket');
-            
+
             // Originヘッダーの適切な設定
             if (req.headers.origin) {
               proxyReq.setHeader('Origin', req.headers.origin);
             }
-            
+
             // 必要なWebSocketヘッダーの保持
             if (req.headers['sec-websocket-key']) {
               proxyReq.setHeader('Sec-WebSocket-Key', req.headers['sec-websocket-key']);
@@ -161,21 +161,21 @@ export default defineConfig({
               proxyReq.setHeader('Sec-WebSocket-Extensions', req.headers['sec-websocket-extensions']);
             }
           });
-          
+
           proxy.on('proxyResWs', (proxyRes: any, proxySocket: any, proxyHead: any) => {
             console.log('📨 WebSocket handshake response:', {
               statusCode: proxyRes.statusCode,
               headers: proxyRes.headers
             });
           });
-          
+
           proxy.on('open', (proxySocket: any) => {
             console.log('✅ WebSocket connection opened successfully');
             proxySocket.on('error', (err: any) => {
               console.error('❌ WebSocket connection error:', err);
             });
           });
-          
+
           proxy.on('close', (proxyRes: any, proxySocket: any, proxyHead: any) => {
             console.log('🔒 WebSocket connection closed');
           });
@@ -204,8 +204,8 @@ export default defineConfig({
     },
     // よく使用される依存関係を事前にバンドル
     include: [
-      'react', 
-      'react-dom', 
+      'react',
+      'react-dom',
       'react-dom/client',
       'wouter',
       'lucide-react'

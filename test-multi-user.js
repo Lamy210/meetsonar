@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-// Multi-user WebSocket test
-import WebSocket from 'ws';
+// Multi-user Socket.IO test
+import { io } from 'socket.io-client';
 
 const users = [
   { id: 'user1', name: 'Alice' },
@@ -13,86 +13,79 @@ async function testUser(user, delay = 0) {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       console.log(`[${user.name}] Starting connection...`);
-      
-      const ws = new WebSocket('ws://localhost:5000/ws', {
-        headers: {
-          'Origin': 'http://localhost:5173',
-          'User-Agent': `Test-${user.name}`
-        }
+
+      const socket = io('http://localhost:5000', {
+        transports: ['websocket'],
+        forceNew: true,
+        reconnection: false
       });
 
-      ws.on('open', () => {
+      socket.on('connect', () => {
         console.log(`[${user.name}] ✅ Connected`);
-        
-        // Send join message
-        const joinMessage = {
-          type: 'join-room',
+
+        // Join room using Socket.IO event
+        const roomData = {
           roomId: 'test123',
-          participantId: `${user.id}-${Date.now()}`,
-          payload: {
-            displayName: user.name
-          }
+          displayName: user.name
         };
-        
-        console.log(`[${user.name}] 📤 Sending join message`);
-        ws.send(JSON.stringify(joinMessage));
+
+        console.log(`[${user.name}] 📤 Joining room`);
+        socket.emit('join-room', roomData);
 
         // Send a chat message after 2 seconds
         setTimeout(() => {
-          const chatMessage = {
-            type: 'chat-message',
-            roomId: 'test123',
-            participantId: `${user.id}-${Date.now()}`,
-            payload: {
-              message: `Hello from ${user.name}!`,
-              displayName: user.name
-            }
+          const chatData = {
+            message: `Hello from ${user.name}!`,
+            roomId: 'test123'
           };
-          
+
           console.log(`[${user.name}] 💬 Sending chat message`);
-          ws.send(JSON.stringify(chatMessage));
+          socket.emit('chat-message', chatData);
         }, 2000);
 
         // Close after 10 seconds
         setTimeout(() => {
           console.log(`[${user.name}] 🔌 Closing connection`);
-          ws.close();
+          socket.disconnect();
           resolve(user);
         }, 10000);
       });
 
-      ws.on('message', (data) => {
-        const message = JSON.parse(data.toString());
-        console.log(`[${user.name}] 📨 Received: ${message.type}`);
+      socket.on('participant-joined', (data) => {
+        console.log(`[${user.name}] 📨 Participant joined:`, data);
       });
 
-      ws.on('error', (error) => {
-        console.error(`[${user.name}] ❌ Error:`, error.message);
+      socket.on('chat-message', (data) => {
+        console.log(`[${user.name}] 📨 Chat message:`, data);
+      });
+
+      socket.on('error', (error) => {
+        console.error(`[${user.name}] ❌ Error:`, error);
         reject(error);
       });
 
-      ws.on('close', (code, reason) => {
-        console.log(`[${user.name}] 🔌 Disconnected: ${code} - ${reason}`);
+      socket.on('disconnect', () => {
+        console.log(`[${user.name}] 🔌 Disconnected`);
       });
     }, delay);
   });
 }
 
 async function runMultiUserTest() {
-  console.log('🚀 Starting multi-user WebSocket test...');
-  
+  console.log('🚀 Starting multi-user Socket.IO test...');
+
   try {
     // Start all users with different delays
-    const promises = users.map((user, index) => 
+    const promises = users.map((user, index) =>
       testUser(user, index * 1000) // 1 second delay between each user
     );
-    
+
     await Promise.all(promises);
     console.log('✅ All users completed the test');
   } catch (error) {
     console.error('❌ Test failed:', error);
   }
-  
+
   process.exit(0);
 }
 

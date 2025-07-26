@@ -158,7 +158,7 @@ export default function Lobby() {
               <p className="text-sm text-slate-400 mb-4">
                 URL招待機能をテストするためのサンプルリンクを生成できます
               </p>
-              
+
               <div className="grid md:grid-cols-2 gap-4">
                 <Button
                   onClick={() => {
@@ -173,11 +173,11 @@ export default function Lobby() {
                   <Plus className="w-4 h-4 mr-2" />
                   サンプルURL招待を生成
                 </Button>
-                
+
                 <Button
                   onClick={() => {
                     const testRoomId = "demo-room-" + Date.now().toString(36);
-                    setLocation(`/join/${testRoomId}?inviter=デモ招待者&name=${encodeURIComponent(displayName || 'テストユーザー')}&expires=${new Date(Date.now() + 24*60*60*1000).toISOString()}`);
+                    setLocation(`/join/${testRoomId}?inviter=デモ招待者&name=${encodeURIComponent(displayName || 'テストユーザー')}&expires=${new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()}`);
                   }}
                   variant="outline"
                   className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
@@ -186,7 +186,7 @@ export default function Lobby() {
                   URL招待ページをテスト
                 </Button>
               </div>
-              
+
               <div className="text-xs text-slate-500 mt-2">
                 <p><strong>サンプルパラメータ:</strong></p>
                 <p>• 招待者: テスト招待者 / デモ招待者</p>
@@ -196,7 +196,7 @@ export default function Lobby() {
             </CardContent>
           </Card>
         </div>
-        
+
         {/* Bottom spacing for better scrolling */}
         <div className="pb-8"></div>
       </div>

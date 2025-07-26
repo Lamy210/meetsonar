@@ -17,7 +17,7 @@ interface RoomInfo {
 export default function JoinPage() {
   const { roomId } = useParams();
   const [, setLocation] = useLocation();
-  
+
   const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +54,7 @@ export default function JoinPage() {
   const fetchRoomInfo = async () => {
     try {
       const response = await fetch(`/api/rooms/${roomId}`);
-      
+
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error("ルームが見つかりません");
@@ -79,11 +79,11 @@ export default function JoinPage() {
     }
 
     setJoining(true);
-    
+
     try {
       // ルームに参加
       const joinUrl = `/room/${roomId}?displayName=${encodeURIComponent(displayName.trim())}`;
-      
+
       // 招待者情報があれば追加
       if (inviterName) {
         const finalUrl = `${joinUrl}&invitedBy=${encodeURIComponent(inviterName)}`;
@@ -117,7 +117,7 @@ export default function JoinPage() {
           <Video className="w-12 h-12 text-red-500 mx-auto" />
           <h1 className="text-2xl font-bold">ルームが見つかりません</h1>
           <p className="text-slate-400">{error || "指定されたルームは存在しないか、既に終了しています。"}</p>
-          <Button 
+          <Button
             onClick={() => setLocation('/')}
             className="bg-primary hover:bg-primary/90"
           >
@@ -137,7 +137,7 @@ export default function JoinPage() {
           <p className="text-slate-400">
             この招待は {new Date(expiry!).toLocaleDateString()} {new Date(expiry!).toLocaleTimeString()} に期限切れになりました。
           </p>
-          <Button 
+          <Button
             onClick={() => setLocation('/')}
             className="bg-primary hover:bg-primary/90"
           >
@@ -161,8 +161,8 @@ export default function JoinPage() {
               {inviterName ? "ミーティング招待" : "ミーティングに参加"}
             </h1>
             <p className="text-slate-400">
-              {inviterName 
-                ? `${inviterName}さんからの招待です` 
+              {inviterName
+                ? `${inviterName}さんからの招待です`
                 : "ビデオ通話に参加しましょう"
               }
             </p>
@@ -264,7 +264,7 @@ export default function JoinPage() {
                 </>
               )}
             </Button>
-            
+
             <Button
               onClick={() => setLocation('/')}
               variant="outline"

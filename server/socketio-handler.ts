@@ -83,7 +83,7 @@ export function createSocketIOServer(httpServer: HTTPServer): SocketIOServer {
 
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.NODE_ENV === 'production' 
+      origin: process.env.NODE_ENV === 'production'
         ? process.env.FRONTEND_URL || false
         : ["http://localhost:5173", "http://localhost:3000"],
       methods: ["GET", "POST"],
@@ -128,7 +128,7 @@ export function createSocketIOServer(httpServer: HTTPServer): SocketIOServer {
     (socket as any).roomId = roomId;
     (socket as any).displayName = displayName;
     (socket as any).lastActivity = Date.now();
-    
+
     next();
   });
 
@@ -136,10 +136,10 @@ export function createSocketIOServer(httpServer: HTTPServer): SocketIOServer {
   io.on('connection', (socket) => {
     const timestamp = new Date().toISOString();
     const socketData = socket as any as AuthenticatedSocket;
-    
+
     console.log(`[${timestamp}] 🔗 Socket.IO connection: ${socket.id}`);
     console.log(`[${timestamp}] Participant: ${socketData.participantId}, Room: ${socketData.roomId}`);
-    
+
     // Track connection
     connections.set(socket.id, socket);
 
@@ -220,7 +220,7 @@ export function createSocketIOServer(httpServer: HTTPServer): SocketIOServer {
         });
 
         console.log(`[${timestamp}] ✅ Participant ${participantId} joined room ${roomId}`);
-        
+
       } catch (error) {
         console.error('Error handling join-room:', error);
         socket.emit('error', { type: 'join_room_failed', message: 'Failed to join room' });
@@ -232,7 +232,7 @@ export function createSocketIOServer(httpServer: HTTPServer): SocketIOServer {
       try {
         const timestamp = new Date().toISOString();
         console.log(`[${timestamp}] 📡 WebRTC signaling:`, data.type, 'to', data.targetParticipantId);
-        
+
         socketData.lastActivity = Date.now();
 
         // Forward the signaling message to the target participant
@@ -300,7 +300,7 @@ export function createSocketIOServer(httpServer: HTTPServer): SocketIOServer {
         socketData.lastActivity = Date.now();
 
         const { roomId } = data;
-        
+
         // Get chat history from database
         const messages = await storage.getChatHistory(roomId);
         console.log(`[${timestamp}] 🗄️ Chat history from database (${messages.length} messages)`);
@@ -347,7 +347,7 @@ export function createSocketIOServer(httpServer: HTTPServer): SocketIOServer {
   setInterval(() => {
     const now = Date.now();
     const TIMEOUT = 5 * 60 * 1000; // 5 minutes
-    
+
     connections.forEach((socket, socketId) => {
       const socketData = socket as any as AuthenticatedSocket;
       if (now - socketData.lastActivity > TIMEOUT) {
@@ -364,7 +364,7 @@ export function createSocketIOServer(httpServer: HTTPServer): SocketIOServer {
 async function handleDisconnection(socket: any, reason: string) {
   const timestamp = new Date().toISOString();
   const socketData = socket as AuthenticatedSocket;
-  
+
   try {
     if (socketData.roomId && socketData.participantId) {
       // Remove from room participants
@@ -392,7 +392,7 @@ async function handleDisconnection(socket: any, reason: string) {
 
     // Remove from connections
     connections.delete(socket.id);
-    
+
     // Note: Rate limiting cleanup is handled by Redis TTL
 
   } catch (error) {

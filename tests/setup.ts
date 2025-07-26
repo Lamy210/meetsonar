@@ -4,12 +4,12 @@ import { beforeAll, afterAll } from "bun:test";
 // Global test configuration
 beforeAll(async () => {
   console.log("🚀 Setting up MeetSonar test environment...");
-  
+
   // Set test environment variables
   process.env.NODE_ENV = "test";
   process.env.DATABASE_URL = "postgresql://meetsonar:password@localhost:5432/meetsonar_test";
   process.env.PORT = "5001"; // Use different port for testing
-  
+
   console.log("✅ Test environment configured");
 });
 
@@ -21,8 +21,8 @@ afterAll(async () => {
 
 // Global test utilities
 export const TEST_CONFIG = {
-  API_BASE_URL: "http://localhost:5000", // 実際のサーバーポートを使用
-  WS_URL: "ws://localhost:5000/ws",
+  API_BASE_URL: "http://localhost:5000", // 統一ポート5000
+  SOCKETIO_URL: "http://localhost:5000", // Socket.IO統一
   TEST_ROOM_ID: "test-room-" + Date.now(),
   TEST_TIMEOUT: 10000,
 };

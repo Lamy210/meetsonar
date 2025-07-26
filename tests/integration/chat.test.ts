@@ -25,7 +25,7 @@ describe("Chat Functionality Tests", () => {
     let messageReceived = false;
 
     const ws = new WebSocket(TEST_CONFIG.WS_URL);
-    
+
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error("WebSocket connection timeout"));
@@ -34,7 +34,7 @@ describe("Chat Functionality Tests", () => {
       ws.onopen = () => {
         connected = true;
         console.log("✅ WebSocket connected");
-        
+
         // Send join-room message
         ws.send(JSON.stringify({
           type: "join-room",
@@ -48,7 +48,7 @@ describe("Chat Functionality Tests", () => {
         const message = JSON.parse(event.data);
         console.log("📨 Received message:", message);
         messageReceived = true;
-        
+
         if (message.type === "participants-list" || message.type === "participant-joined") {
           clearTimeout(timeout);
           ws.close();
@@ -68,7 +68,7 @@ describe("Chat Functionality Tests", () => {
   test("should send and receive chat messages", async () => {
     const alice = generateTestUser("alice");
     const bob = generateTestUser("bob");
-    
+
     let aliceMessages: any[] = [];
     let bobMessages: any[] = [];
 
@@ -101,17 +101,17 @@ describe("Chat Functionality Tests", () => {
         console.log("👩 Alice received:", message);
 
         // Check if Alice received Bob's chat message
-        if (message.type === "chat-message" && 
-            message.payload?.displayName === bob.displayName) {
+        if (message.type === "chat-message" &&
+          message.payload?.displayName === bob.displayName) {
           clearTimeout(timeout);
           aliceWs.close();
           bobWs.close();
-          
-          expect(aliceMessages.some(m => 
-            m.type === "chat-message" && 
+
+          expect(aliceMessages.some(m =>
+            m.type === "chat-message" &&
             m.payload?.message === "Hello from Bob!"
           )).toBe(true);
-          
+
           resolve(true);
         }
       };
@@ -194,10 +194,10 @@ describe("Chat Functionality Tests", () => {
 
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        
-        if (message.type === "chat-message" && 
-            message.payload?.message === testMessage) {
-          
+
+        if (message.type === "chat-message" &&
+          message.payload?.message === testMessage) {
+
           // Request chat history to verify persistence
           ws.send(JSON.stringify({
             type: "chat-history",
@@ -210,14 +210,14 @@ describe("Chat Functionality Tests", () => {
         if (message.type === "chat-history") {
           clearTimeout(timeout);
           ws.close();
-          
+
           const chatHistory = message.payload;
           expect(Array.isArray(chatHistory)).toBe(true);
-          expect(chatHistory.some((msg: any) => 
-            msg.message === testMessage && 
+          expect(chatHistory.some((msg: any) =>
+            msg.message === testMessage &&
             msg.displayName === user.displayName
           )).toBe(true);
-          
+
           resolve(true);
         }
       };
@@ -232,7 +232,7 @@ describe("Chat Functionality Tests", () => {
   test("should handle multiple participants in chat", async () => {
     const users = [
       generateTestUser("alice"),
-      generateTestUser("bob"), 
+      generateTestUser("bob"),
       generateTestUser("charlie")
     ];
 
@@ -266,7 +266,7 @@ describe("Chat Functionality Tests", () => {
 
           if (message.type === "participants-list") {
             connectedCount++;
-            
+
             // When all users are connected, start sending messages
             if (connectedCount === users.length) {
               setTimeout(() => {
@@ -289,18 +289,18 @@ describe("Chat Functionality Tests", () => {
 
           if (message.type === "chat-message") {
             messagesExchanged++;
-            
+
             // Check if all users received all messages
             if (messagesExchanged >= users.length * users.length) {
               clearTimeout(timeout);
               connections.forEach(ws => ws.close());
-              
+
               // Verify each user received messages from others
               receivedMessages.forEach((messages, userIndex) => {
                 const chatMessages = messages.filter(m => m.type === "chat-message");
                 expect(chatMessages.length).toBeGreaterThan(0);
               });
-              
+
               resolve(true);
             }
           }

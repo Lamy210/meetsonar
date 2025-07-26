@@ -83,12 +83,12 @@ export default function InviteModal({ isOpen, onClose, roomId, displayName }: In
 
       const data: InvitationResponse = await response.json();
       setSentInvitations(prev => [...prev, data]);
-      
+
       toast({
         title: "招待を送信しました！",
         description: `${email}に招待が送信されました。`,
       });
-      
+
       setEmail("");
       setInviteeName("");
     } catch (error) {
@@ -121,29 +121,29 @@ export default function InviteModal({ isOpen, onClose, roomId, displayName }: In
   const generateUrlInvite = () => {
     const baseUrl = `${window.location.origin}/join/${roomId}`;
     const params = new URLSearchParams();
-    
+
     // 招待者情報を追加
     if (displayName) {
       params.set('inviter', displayName);
     }
-    
+
     // 招待される人の情報を追加
     if (email.trim()) {
       params.set('email', email.trim());
     }
-    
+
     if (inviteeName.trim()) {
       params.set('name', inviteeName.trim());
     }
-    
+
     // カスタムメッセージ（将来的に追加予定）
     // params.set('message', 'ミーティングに参加してください');
-    
+
     // 有効期限（24時間後）
     const expiry = new Date();
     expiry.setHours(expiry.getHours() + 24);
     params.set('expires', expiry.toISOString());
-    
+
     return `${baseUrl}?${params.toString()}`;
   };
 
@@ -201,7 +201,7 @@ export default function InviteModal({ isOpen, onClose, roomId, displayName }: In
           {/* URL Invitation */}
           <div className="border-t border-slate-700 pt-4">
             <Label className="block text-sm text-slate-400 mb-3">URL招待リンク生成</Label>
-            
+
             <div className="space-y-3">
               <div>
                 <Label className="block text-xs text-slate-500 mb-1">招待される方のメールアドレス (オプション)</Label>
@@ -213,7 +213,7 @@ export default function InviteModal({ isOpen, onClose, roomId, displayName }: In
                   className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
                 />
               </div>
-              
+
               <div>
                 <Label className="block text-xs text-slate-500 mb-1">招待される方の表示名 (オプション)</Label>
                 <Input
@@ -233,7 +233,7 @@ export default function InviteModal({ isOpen, onClose, roomId, displayName }: In
                   <Link className="w-4 h-4 mr-2" />
                   URL招待リンクをコピー
                 </Button>
-                
+
                 <Button
                   onClick={sendInvite}
                   disabled={!email.trim() || isLoading}
@@ -252,7 +252,7 @@ export default function InviteModal({ isOpen, onClose, roomId, displayName }: In
                   )}
                 </Button>
               </div>
-              
+
               <p className="text-xs text-slate-500">
                 左: URLリンク生成、右: サーバー経由で個人招待を送信
               </p>

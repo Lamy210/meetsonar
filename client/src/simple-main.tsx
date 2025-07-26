@@ -20,25 +20,25 @@ function SimpleApp() {
 // Error handling with detailed logging
 try {
   console.log("🚀 Starting Simple Preact App...");
-  
+
   const rootElement = document.getElementById("root");
   if (!rootElement) {
     throw new Error("Root element not found");
   }
-  
+
   console.log("✅ Root element found:", rootElement);
-  
+
   render(<SimpleApp />, rootElement);
   console.log("✅ Preact app rendered successfully!");
-  
+
   // Add a success indicator to the page title
   setTimeout(() => {
     document.title = "✅ " + document.title;
   }, 1000);
-  
+
 } catch (error) {
   console.error("❌ React App Error:", error);
-  
+
   // Show error in the root element
   const rootElement = document.getElementById("root");
   if (rootElement) {
